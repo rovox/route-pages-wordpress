@@ -50,6 +50,10 @@ class TrufiApi {
         if (is_wp_error($response)) {
             return null;
         } else {
+            $_responseCode = wp_remote_retrieve_response_code($response);
+            if ($_responseCode !== 200) {
+                throw new \Exception('Received API response ' . $_responseCode);
+            }
             $_body = wp_remote_retrieve_body($response);
             return json_decode($_body, true);
         }

@@ -26,6 +26,12 @@ We are a non-profit NGO founded by a group of German and Bolivian volunteers in 
 2. Use the regular Wordpress plugin installation process to install the .zip file.
 3. Navigate to Wordpress administration and then configuration.
 4. Set the required values for this plugin, such as the Graphql server URL.
+   1. If your are using OpenTripPlanner v1, the Graphql URL might be something like `https://yourotp.example.com/otp/routers/default/index/graphql`
+   2. You need to create a new empty base page for the routes
+
+## Testing
+
+You can test if the plugin works by accessing the URL path `/wp-sitemap-routes-1.xml` of your page.
 
 ## Contributing
 
