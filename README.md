@@ -2,7 +2,7 @@
 
 ![License: GPL v2](https://img.shields.io/badge/License-GPL%20v2-blue.svg)
 
-Trufi Route Pages is a Wordpress plugin developed by [The Trufi Association](https://trufi.app/) to complement the Trufi mobile application. It allows Wordpress to receive a URL request containing a route ID and name and display it as a post. The plugin also generates a dynamic sitemap.xml based on route information from the openGraphql API.
+Trufi Route Pages is a Wordpress plugin developed by [The Trufi Association](https://trufi-association.org/) to complement the Trufi mobile application. It allows Wordpress to receive a URL request containing a route ID and name and display it as a post. The plugin also generates a dynamic sitemap.xml based on route information from the openGraphql API.
 
 ## About The Trufi Association
 
@@ -11,11 +11,11 @@ We are a non-profit NGO founded by a group of German and Bolivian volunteers in 
 ## Plugin Information
 
 * **Plugin Name**: Trufi Route Pages
-* **Plugin URI**: [https://trufi.app/](https://trufi.app/)
+* **Plugin URI**: [https://trufi-association.org/](https://trufi-association.org/)
 * **Description**: A plugin for displaying Trufi Maps.
 * **Version**: 1.0
 * **Author**: Trufi Association
-* **Author URI**: [https://trufi.app/](https://trufi.app/)
+* **Author URI**: [https://trufi-association.org/](https://trufi-association.org/)
 * **License**: GPL2
 * **License URI**: [https://www.gnu.org/licenses/gpl-2.0.html](https://www.gnu.org/licenses/gpl-2.0.html)
 * **Text Domain**: TrufiApi-maps
