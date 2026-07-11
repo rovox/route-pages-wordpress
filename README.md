@@ -43,4 +43,4 @@ This project is licensed under the [GPL v2 License](https://www.gnu.org/licenses
 
 ## Contact
 
-For more information, you can reach us through our [website](https://trufi.app/).
+For more information, you can reach us through our [website](https://trufi-association.org/contact).
