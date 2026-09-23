@@ -15,25 +15,27 @@ A WordPress plugin that renders **route pages** for Trufi maps as virtual posts 
 
 There is no real post for a route. The whole feature is a fabrication pipeline:
 
-1. **Rewrite** (`functions/rewrite-rules.php`): `^{base}/([^/]+)/([^/]+)/?` maps to query vars `trufi_map_name` + `trufi_map_id`. `{base}` defaults to `routes` but is derived from the **Base Page for Maps** setting (`get_post_field('post_name', ...)`).
+1. **Rewrite** (`functions/rewrite-rules.php`): `^{base}/([^/]+)/([^/]+)/?` maps to query vars `trufi_map_name` + `trufi_map_id`. `{base}` defaults to `routes` but is derived from the **Base Page for Maps** setting via `trufi_get_base_path()` (`functions/functions.php`).
 2. **Render** (`functions/template-redirect.php`, on `template_redirect`): fabricates a global `$post`, stamps `is_page` / `is_singular` on `$wp_query`, and injects the minified template HTML into `$post->post_content`. `the_title` is filtered to the route name (with an add/remove hack around nav menus). A companion `pre_get_posts` filter (`disable_other_posts`) prevents unrelated posts leaking into the main query.
 3. Route data comes from the GraphQL query `pattern(id) { route { id, shortName, longName }, geometry { lat, lon } }` (`App/Api/TrufiApi.php`).
 
-**URL gotcha to keep in sync:** the sitemap builds `{base}` via `get_page_uri($map_page_id)` (`App/Providers/TrufiRoutesSitemapProvider.php:24`), while the rewrite rule uses `get_post_field('post_name', ...)` (`functions/rewrite-rules.php:7`). They only agree when the Base Page is a top-level page with a matching slug.
+**URL base path — single source of truth:** both the rewrite rule (`functions/rewrite-rules.php`) and the sitemap provider (`App/Providers/TrufiRoutesSitemapProvider.php`) call the shared `trufi_get_base_path()` helper (`functions/functions.php`), which resolves to `get_post_field('post_name', $map_page_id)`. They used to diverge — the sitemap called `get_page_uri()` instead, which returns the full hierarchical path for a child page and silently produced sitemap URLs that didn't match the rewrite rule (404s) unless the Base Page was top-level. Fixed by routing both through the same helper; **still create the Base Page as top-level** since a page's slug isn't guaranteed unique across the site otherwise.
 
 **Slug convention:** route URL slug = `sanitize_title(longName with `→` replaced by a locale word)` via `App/Utility.php::replaceArrowWithWord` (ES→`a`, DE→`zu`, EN→`to`, …).
 
 ### Sitemap
 
 - `functions/sitemap-provider.php` registers `App\Providers\TrufiRoutesSitemapProvider` on `init`.
-- The provider queries `patterns { code, route { longName } }`, builds `https://<home>/<base>/<slug>/<code>` URLs, and caches the list in the transient `trufi_routes_sitemap_xml`.
+- The provider queries `patterns { code, route { longName } }`, builds `https://<home>/<base>/<slug>/<code>` URLs, and caches the full list in the transient `trufi_routes_sitemap_xml`.
+- Pagination is real, not hardcoded: `get_max_num_pages()` / `get_url_list()` both go through `wp_sitemaps_get_max_urls('routes')` (core default: 2000 URLs/page, filterable via the `wp_sitemaps_max_urls` filter) and slice the cached list per page. A network with more routes than that will correctly get `/wp-sitemap-routes-2.xml`, etc., instead of one oversized sitemap.
 - Served by WordPress core at `/wp-sitemap-routes-1.xml` (requires pretty permalinks).
 
 ### Templates & rendering
 
-- `templates/map-template.html` is a static shell with `{{placeholder}}` tokens. `template-redirect.php` does a `str_replace` with values fetched from the settings (line color, store URLs, API URL, …) and injects the full GraphQL response as JSON into a `<script>const data = ...;</script>` block.
+- `templates/map-template.html` is a static shell with `{{placeholder}}` tokens. `template-redirect.php` does a `str_replace` with values fetched from the settings (line color, store URLs, API URL, …) and injects the full GraphQL response as JSON into a `<script>const data = ...;</script>` block. It also injects `{{routeName}}` / `{{routeShortName}}` / `{{routeDescription}}` (route-specific, `esc_html()`-escaped text) so the rendered page has real per-route visible content instead of a generic, identical-on-every-page blurb.
 - `minify_html()` (`functions/functions.php`) strips HTML comments and whitespace at render time.
 - Leaflet 1.7.1 (unpkg) and OpenStreetMap tiles are hardcoded in the `wp_head` tags and the template. There is **no bundler** — edit in place.
+- `trufi_add_header_tags()` (`functions/functions.php`) prints the `<head>` SEO tags: meta description, `robots`, `canonical`, Open Graph/Twitter card tags, and a `BreadcrumbList` JSON-LD block (Home → base page → route). See the "SEO & AI-crawler notes" section of `README.md` for the rationale.
 
 ### Caching & settings
 
@@ -60,13 +62,18 @@ Conventions:
 
 ## Local testing with Docker
 
-`trufi-website-modules/` is a **separate, uncommitted git clone** of the official `trufi-association/trufi-website-modules` repo, providing WordPress + MySQL + phpMyAdmin containers (docker compose). See `PLAN.md` for the exact bring-up steps run during this build-out.
+The tracked, recommended stack is `docker-compose.dev.yml` at the repo root (WordPress + MySQL 8.4 + phpMyAdmin, plugin live-mounted). Full walkthrough: see "Local development with Docker" in `README.md`. Quick start:
 
-Quick reference:
+```bash
+docker compose -f docker-compose.dev.yml up -d
+```
 
 - WordPress: `http://localhost:8081` (plugin live-mounted from the repo into `wp-content/plugins/trufi-route-pages`).
 - phpMyAdmin: `http://localhost:8080` (login as user `wordpress`).
-- Network: all modules join the shared `trufi-website` bridge so WordPress can reach MySQL at host `mysql`.
+
+It's named `docker-compose.dev.yml`, not `docker-compose.yml`, because this repo's `.gitignore` excludes any plain `docker-compose.yml` / `docker` path — that rule predates this stack and was left in place to keep ad-hoc local compose files untracked.
+
+**Alternative:** `trufi-website-modules/` (if present locally) is a **separate, uncommitted git clone** of the official `trufi-association/trufi-website-modules` repo — a different WordPress + MySQL + phpMyAdmin stack maintained outside this plugin's repo. It is unrelated to this codebase; per `AGENTS.md`, don't edit, inspect, or commit it. `PLAN.md` documents the bring-up steps that were used with it in an earlier session, kept for historical reference.
 
 ### Working Trufi GraphQL endpoint (validated)
 
@@ -77,18 +84,34 @@ Quick reference:
 | Sitemap query | `{ patterns { code, route { longName } } }` |
 | Route query | `query($id: String!) { pattern(id: $id) { route { id, shortName, longName }, geometry { lat, lon } } }` |
 
-Configure it in **Settings → Trufi Routes → GraphQL server URL**. Note: the old OTP 1.5 dev server `otp150.trufi.app` is currently unresponsive; use the OTP 2.8 endpoint above (it serves the plugin's legacy-style GraphQL at `/otp/routers/default/index/graphql`).
+Configure it in **Settings → Trufi Routes → GraphQL server URL**.
 
-Because this is a public dev server, don't rely on it for automated tests; for reproducible work, run your own OTP instance (see "Where to find information").
+#### Origin & provenance
+
+The endpoint wasn't guessed; it is traced as follows:
+
+1. **Host** — `otp281.trufi.app` is the default endpoint of the `Otp28RoutingProvider` in the Trufi Association's `trufi-core` example app configuration (`apps/example/lib/main.dart`, constant `_otp28Endpoint`). It is Trufi Association's **public OpenTripPlanner 2.8 dev instance** (the loaded graph is Cochabamba, Bolivia). The same file also documents the related public dev hosts `otp150.trufi.app` (OTP 1.5), `photon.trufi.app` (geocoding), `maps.trufi.app` (map tiles/styles) and `planner.trufi.app` (web planner).
+2. **Path** — `/otp/routers/default/index/graphql` is OpenTripPlanner's **Legacy GraphQL API** endpoint. It's the same URL shape this plugin's README describes for the "GraphQL server URL" setting, and it is the documented convention for exposing OTP's GraphQL schema under a router named `default`.
+3. **Validation** — the endpoint was confirmed live by POSTing the plugin's two exact GraphQL documents (`patterns { code, route { longName } }` and `pattern(id) { route {...}, geometry {...} }`) and receiving the standard GraphQL `{"data": {...}}` JSON envelope. At validation time `otp150.trufi.app` (the OTP 1.5 instance) was unresponsive, so it is **not** usable.
+
+Because this is a public dev server, it may change or be rate-limited. Verify it's still up before relying on it:
+
+```bash
+curl -sS -m 15 -X POST "https://otp281.trufi.app/otp/routers/default/index/graphql" \
+  -H 'Content-Type: application/json' -d '{"query":"{ patterns { code, route { longName } } }"}'
+```
+
+Don't build automated tests against it; for reproducible work, run your own OTP instance (see "Where to find information").
 
 ## Where to find information
 
 In-repo:
 
-- `README.md` — install/configuration steps and the basic sitemap smoke test.
+- `README.md` — install/configuration steps, the Docker quick start, and the SEO/AI-crawler notes.
+- `docker-compose.dev.yml` + `.env.dev.example` — the tracked local dev stack.
 - `CONTRIBUTING.md` — contribution process.
 - `AGENTS.md` — concise agent-facing notes and gotchas (kept up to date).
-- `PLAN.md` — the local testing bring-up plan (Docker + WordPress setup).
+- `PLAN.md` — an earlier session's local testing bring-up plan against `trufi-website-modules/` (historical; superseded by `docker-compose.dev.yml` for new setups).
 - Code:
   - `App/Api/TrufiApi.php` — the GraphQL client and the two queries used.
   - `App/Utility.php` — locale-dependent slug word (`replaceArrowWithWord`).
