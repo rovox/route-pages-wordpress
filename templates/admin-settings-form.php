@@ -122,6 +122,18 @@
                     <p class="description"><?php _e('Latitude, longitude and zoom level used to center the routes index map before a route is selected.', 'TrufiApi-maps'); ?></p>
                 </td>
             </tr>
+            <tr>
+                <th scope="row">
+                    <label for="trufi_show_location"><?php _e('Location button', 'TrufiApi-maps'); ?></label>
+                </th>
+                <td>
+                    <label>
+                        <input type="checkbox" name="trufi_show_location" id="trufi_show_location" value="1" <?php checked($show_location, '1'); ?>>
+                        <?php _e('Show the "Mi ubicación" button on the maps', 'TrufiApi-maps'); ?>
+                    </label>
+                    <p class="description"><?php _e('Uses the browser GPS, falling back to an approximate IP-based location if GPS is unavailable.', 'TrufiApi-maps'); ?></p>
+                </td>
+            </tr>
         </table>
         <?php submit_button(__('Save Changes', 'TrufiApi-maps')); ?>
     </form>

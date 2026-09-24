@@ -24,6 +24,7 @@ function trufi_routes_settings_page() {
     if (!$map_center_lng) $map_center_lng = '-66.1568';
     $map_zoom = get_option(TRUFI_MAP_ZOOM_OPTION);
     if (!$map_zoom) $map_zoom = '13';
+    $show_location = get_option(TRUFI_SHOW_LOCATION_OPTION, '1');
 
 
     if (isset($_POST['trufi_api_options_nonce'])) {
@@ -58,6 +59,8 @@ function trufi_routes_settings_page() {
         update_option(TRUFI_MAP_CENTER_LAT_OPTION, $map_center_lat);
         update_option(TRUFI_MAP_CENTER_LNG_OPTION, $map_center_lng);
         update_option(TRUFI_MAP_ZOOM_OPTION, $map_zoom);
+
+        update_option(TRUFI_SHOW_LOCATION_OPTION, isset($_POST['trufi_show_location']) ? '1' : '0');
 
         delete_trufi_transients();
         trufi_maps_add_rewrite_rules();

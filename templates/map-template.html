@@ -162,7 +162,7 @@
 </div>
 <div id="map-container">
     <div id="map"></div>
-    <button type="button" class="trufi-geo-btn" id="trufi-geo-btn" title="Marcar dónde estoy">Mi ubicación</button>
+    <button type="button" class="trufi-geo-btn" id="trufi-geo-btn" title="Marcar dónde estoy" style="display: {{showLocation}};">Mi ubicación</button>
     <div class="trufi-geo-toast" id="trufi-geo-toast"></div>
 </div>
 <script>
@@ -261,22 +261,52 @@
         toast('Tu ubicación marcada en el mapa');
     }
 
+    function showUserLocationIp(latlng) {
+        geoLayer.clearLayers();
+        const icon = L.divIcon({
+            className: 'trufi-geo-pulse-icon',
+            iconSize: [14, 14],
+            iconAnchor: [7, 7],
+        });
+        L.marker(latlng, { icon: icon, zIndexOffset: 1000 }).addTo(geoLayer);
+        L.circle(latlng, { radius: 3000, color: '#6741d9', weight: 1, dashArray: '6 4', fillColor: '#6741d9', fillOpacity: 0.1 }).addTo(geoLayer);
+        map.panTo(latlng);
+        toast('Ubicación aproximada por IP (según tu conexión)');
+    }
+
+    function locateByIp() {
+        fetch('https://ipwho.is/')
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                if (!d.success || !d.latitude || !d.longitude) throw new Error('lookup failed');
+                geoBtn.classList.remove('is-locating');
+                showUserLocationIp([d.latitude, d.longitude]);
+            })
+            .catch(function () {
+                geoBtn.classList.remove('is-locating');
+                toast('No se pudo obtener tu ubicación.');
+            });
+    }
+
     function locateUser() {
+        geoBtn.classList.add('is-locating');
         if (!('geolocation' in navigator)) {
-            toast('Tu navegador no permite conocer tu ubicación.');
+            locateByIp();
             return;
         }
-        geoBtn.classList.add('is-locating');
         map.locate({ setView: false, watch: false, enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
     }
 
-    geoBtn.addEventListener('click', locateUser);
-    map.on('locationfound', function (e) {
-        geoBtn.classList.remove('is-locating');
-        showUserLocation(e.latlng, e.accuracy);
-    });
-    map.on('locationerror', function () {
-        geoBtn.classList.remove('is-locating');
-        toast('No se pudo obtener tu ubicación (permiso o GPS no disponibles).');
-    });
+    if (geoBtn) {
+        geoBtn.addEventListener('click', locateUser);
+        map.on('locationfound', function (e) {
+            geoBtn.classList.remove('is-locating');
+            showUserLocation(e.latlng, e.accuracy);
+        });
+        map.on('locationerror', function () {
+            geoBtn.classList.remove('is-locating');
+            toast('GPS no disponible, ubicando por IP...');
+            locateByIp();
+        });
+    }
 </script>

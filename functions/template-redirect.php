@@ -37,6 +37,7 @@ function trufi_maps_template_redirect() {
         $google_play_image = get_option(TRUFI_GOOGLE_PLAY_IMAGE_OPTION);
         $apple_store_image = get_option(TRUFI_APPLE_STORE_IMAGE_OPTION);
         $map_page_id       = get_option(TRUFI_MAP_PAGE_ID_OPTION);
+        $show_location     = get_option(TRUFI_SHOW_LOCATION_OPTION, '1');
 
         add_action('wp_head', function () use ($page_title, $meta_description, $route_name, $map_page_id) {
             trufi_add_header_tags($page_title, $meta_description, $route_name, $map_page_id);
@@ -57,6 +58,7 @@ function trufi_maps_template_redirect() {
             "{{googlePlayImage}}" => $google_play_image,
             "{{appleStoreImage}}" => $apple_store_image,
             "{{routeData}}"       => json_encode($routeData),
+            "{{showLocation}}"    => $show_location === '1' ? '' : 'none',
         ];
 
         $template_path    = plugin_dir_path(__FILE__) . '../templates/map-template.html';
@@ -189,6 +191,7 @@ function trufi_maps_render_routes_index() {
     $map_center_lat   = get_option(TRUFI_MAP_CENTER_LAT_OPTION) ?: '-17.3895';
     $map_center_lng   = get_option(TRUFI_MAP_CENTER_LNG_OPTION) ?: '-66.1568';
     $map_zoom         = get_option(TRUFI_MAP_ZOOM_OPTION) ?: '13';
+    $show_location     = get_option(TRUFI_SHOW_LOCATION_OPTION, '1');
 
     add_action('wp_head', function () use ($page_title, $page_description) {
         trufi_add_header_tags($page_title, $page_description);
@@ -208,6 +211,7 @@ function trufi_maps_render_routes_index() {
         "{{mapCenterLat}}" => (float) $map_center_lat,
         "{{mapCenterLng}}" => (float) $map_center_lng,
         "{{mapZoom}}"      => (int) $map_zoom,
+        "{{showLocation}}" => $show_location === '1' ? '' : 'none',
     ];
 
     $template_path    = plugin_dir_path(__FILE__) . '../templates/routes-index-template.html';

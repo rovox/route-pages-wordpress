@@ -13,3 +13,4 @@ define('TRUFI_MAP_PAGE_ID_OPTION', 'trufi_map_page_id');
 define('TRUFI_MAP_CENTER_LAT_OPTION', 'trufi_map_center_lat');
 define('TRUFI_MAP_CENTER_LNG_OPTION', 'trufi_map_center_lng');
 define('TRUFI_MAP_ZOOM_OPTION', 'trufi_map_zoom');
+define('TRUFI_SHOW_LOCATION_OPTION', 'trufi_show_location');
