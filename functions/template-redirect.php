@@ -1,7 +1,5 @@
 <?php
 
-use App\Api\TrufiApi;
-
 add_action('template_redirect', 'trufi_maps_template_redirect');
 function trufi_maps_template_redirect() {
     if (!get_query_var('trufi_map_id') && !get_query_var('trufi_map_name') && is_page((int) get_option(TRUFI_MAP_PAGE_ID_OPTION))) {
@@ -10,118 +8,156 @@ function trufi_maps_template_redirect() {
     }
 
     if (get_query_var('trufi_map_id') && get_query_var('trufi_map_name')) {
-        $mapId         = rawurldecode(get_query_var('trufi_map_id'));
-        $mapName       = get_query_var('trufi_map_name');
-        $apiUrl        = get_option(TRUFI_API_URL_OPTION);
-        $cacheKey      = 'trufi_route_data_' . $mapId;
-        $cacheLifetime = get_option(TRUFI_CACHE_TTL_OPTION) * 60 * 60;
-
-        // Check if the route data is cached
-        $routeData = get_transient($cacheKey);
-        if (false === $routeData) {
-            // Not cached, fetch route data from Trufi API
-            $trufiApi  = new TrufiApi($apiUrl);
-            $routeData = $trufiApi->fetchRoute($mapId);
-            set_transient($cacheKey, $routeData, $cacheLifetime);
-        }
-
-        $route_name        = $routeData['data']['pattern']['route']['longName'];
-        $route_short_name  = $routeData['data']['pattern']['route']['shortName'] ?? '';
-        $page_title        = $route_name . ' - ' . get_bloginfo('name');
-        $page_description  = get_option(TRUFI_SITE_DESCRIPTION_OPTION);
-        $meta_description  = $page_description . ' - ' . $route_name;
-        $line_color        = get_option(TRUFI_LINE_COLOR_OPTION);
-        $line_weight       = get_option(TRUFI_LINE_WEIGHT_OPTION);
-        $google_play_url   = get_option(TRUFI_GOOGLE_PLAY_URL_OPTION);
-        $apple_store_url   = get_option(TRUFI_APPLE_STORE_URL_OPTION);
-        $google_play_image = get_option(TRUFI_GOOGLE_PLAY_IMAGE_OPTION);
-        $apple_store_image = get_option(TRUFI_APPLE_STORE_IMAGE_OPTION);
-        $map_page_id       = get_option(TRUFI_MAP_PAGE_ID_OPTION);
-        $show_location     = get_option(TRUFI_SHOW_LOCATION_OPTION, '1');
-
-        add_action('wp_head', function () use ($page_title, $meta_description, $route_name, $map_page_id) {
-            trufi_add_header_tags($page_title, $meta_description, $route_name, $map_page_id);
-        }, 7);
-
-        $replacement_values = [
-            "{{mapId}}"           => $mapId,
-            "{{apiUrl}}"          => $apiUrl,
-            "{{pageTitle}}"       => $page_title,
-            "{{routeName}}"       => esc_html($route_name),
-            "{{routeShortName}}"  => esc_html($route_short_name),
-            "{{routeDescription}}" => esc_html($meta_description),
-            "{{lineColor}}"       => $line_color,
-            "{{lineWeight}}"      => $line_weight,
-            "{{callToAction}}"    => $page_description,
-            "{{googlePlayUrl}}"   => $google_play_url,
-            "{{appleStoreUrl}}"   => $apple_store_url,
-            "{{googlePlayImage}}" => $google_play_image,
-            "{{appleStoreImage}}" => $apple_store_image,
-            "{{routeData}}"       => json_encode($routeData),
-            "{{showLocation}}"    => $show_location === '1' ? '' : 'none',
-        ];
-
-        $template_path    = plugin_dir_path(__FILE__) . '../templates/map-template.html';
-        $template_content = file_get_contents($template_path);
-        $template_content = str_replace(array_keys($replacement_values), array_values($replacement_values), $template_content);
-
-        // Like the index page, the injected template embeds markup-bearing JS
-        // (HTML strings feeding Leaflet divIcons). the_content's default
-        // transforms (wpautop, shortcodes, ...) corrupt it, so bypass them.
-        remove_all_filters('the_content');
-
-        global $post;
-        $post->ID             = $map_page_id;
-        $post->post_title     = $page_title;
-        $post->post_name      = $mapName;
-        $post->post_content   = minify_html($template_content);
-        $post->comment_status = 'closed';
-        $post->post_type      = 'page';
-        $post->post_status    = 'publish';
-        $post->post_parent    = $map_page_id;
-        $post->menu_order     = 0;
-        $post->comment_count  = 0;
-
-        /*add_filter('the_content', function ($content) use ($template_content) {
-            return $template_content;
-        });*/
-
-
-        function set_route_title($title, $id = null) {
-            // if we are on the map page, set the title to the route name, previously set in post_title
-            if ($id == get_option(TRUFI_MAP_PAGE_ID_OPTION)) {
-                global $post;
-                return $post->post_title;
-            }
-            return $title;
-        }
-
-        add_filter('the_title', 'set_route_title', 10, 2);
-
-        function trufi_remove_title_filter_nav_menu($nav_menu, $args) {
-            // we are working with menu, so remove the title filter
-            remove_filter('the_title', 'set_route_title', 10, 2);
-            return $nav_menu;
-        }
-
-        // this filter fires just before the nav menu item creation process
-        add_filter('pre_wp_nav_menu', 'trufi_remove_title_filter_nav_menu', 10, 2);
-
-        function trufi_add_title_filter_non_menu($items, $args) {
-            // we are done working with menu, so add the title filter back
-            add_filter('the_title', 'set_route_title', 10, 2);
-            return $items;
-        }
-
-        // this filter fires after nav menu item creation is done
-        add_filter('wp_nav_menu_items', 'trufi_add_title_filter_non_menu', 10, 2);
-
-
-        global $wp_query;
-        $wp_query->is_singular = true;
-        $wp_query->is_page     = true;
-        $wp_query->is_home     = false;
+        trufi_maps_render_route_page();
     }
+}
+
+/**
+ * Renders a single virtual route page: the map, the "paradas" (stops) list,
+ * and the route's headline/stats. Data (geometry + stops) is embedded for
+ * Leaflet via wp_localize_script (functions/enqueue-scripts.php), the
+ * template itself only carries the server-rendered text content.
+ *
+ * @return void
+ */
+function trufi_maps_render_route_page() {
+    $mapId   = rawurldecode(get_query_var('trufi_map_id'));
+    $mapName = get_query_var('trufi_map_name');
+
+    $routeData = trufi_fetch_route_data($mapId);
+    $pattern   = $routeData['data']['pattern'] ?? null;
+
+    if (!$pattern) {
+        return;
+    }
+
+    $long_name         = $pattern['route']['longName'] ?? '';
+    $route_short_name  = $pattern['route']['shortName'] ?? '';
+    $split              = trufi_split_route_long_name($long_name);
+    $page_title        = $long_name . ' - ' . get_bloginfo('name');
+    $page_description  = get_option(TRUFI_SITE_DESCRIPTION_OPTION);
+    $meta_description  = $page_description . ' - ' . $long_name;
+    $google_play_url   = get_option(TRUFI_GOOGLE_PLAY_URL_OPTION);
+    $apple_store_url   = get_option(TRUFI_APPLE_STORE_URL_OPTION);
+    $google_play_image = get_option(TRUFI_GOOGLE_PLAY_IMAGE_OPTION);
+    $apple_store_image = get_option(TRUFI_APPLE_STORE_IMAGE_OPTION);
+    $map_page_id       = get_option(TRUFI_MAP_PAGE_ID_OPTION);
+    $show_location     = get_option(TRUFI_SHOW_LOCATION_OPTION, '1');
+
+    $stops         = $pattern['stops'] ?? [];
+    $distance_km   = trufi_route_distance_km($pattern['geometry'] ?? []);
+    $stops_list_html = trufi_render_stops_list_html($stops);
+
+    add_action('wp_head', function () use ($page_title, $meta_description, $long_name, $map_page_id) {
+        trufi_add_header_tags($page_title, $meta_description, $long_name, $map_page_id);
+    }, 7);
+
+    $replacement_values = [
+        "{{pageTitle}}"        => esc_html($page_title),
+        "{{routeHeadline}}"    => esc_html($split['headline']),
+        "{{routeSubtitle}}"    => esc_html($split['subtitle']),
+        "{{routeShortName}}"   => esc_html($route_short_name),
+        "{{routeDescription}}" => esc_html($meta_description),
+        "{{routeDistance}}"    => esc_html(trufi_format_distance_km($distance_km)),
+        "{{routeStopCount}}"   => esc_html((string) count($stops)),
+        "{{stopsListHtml}}"    => $stops_list_html,
+        "{{indexUrl}}"         => esc_url(get_permalink($map_page_id)),
+        "{{googlePlayUrl}}"    => esc_url($google_play_url),
+        "{{appleStoreUrl}}"    => esc_url($apple_store_url),
+        "{{googlePlayImage}}"  => esc_url($google_play_image),
+        "{{appleStoreImage}}"  => esc_url($apple_store_image),
+        "{{showLocation}}"     => $show_location === '1' ? '1' : '0',
+    ];
+
+    $template_path    = plugin_dir_path(__FILE__) . '../templates/map-template.html';
+    $template_content = file_get_contents($template_path);
+    $template_content = str_replace(array_keys($replacement_values), array_values($replacement_values), $template_content);
+
+    // The template's content is fully static HTML now (map/script config
+    // travels via wp_localize_script, see enqueue-scripts.php), but keep
+    // bypassing the_content's filters: wpautop etc. still reformat/escape
+    // plain markup in ways that break the map container's layout.
+    remove_all_filters('the_content');
+
+    global $post;
+    $post->ID             = $map_page_id;
+    $post->post_title     = $page_title;
+    $post->post_name      = $mapName;
+    $post->post_content   = minify_html($template_content);
+    $post->comment_status = 'closed';
+    $post->post_type      = 'page';
+    $post->post_status    = 'publish';
+    $post->post_parent    = $map_page_id;
+    $post->menu_order     = 0;
+    $post->comment_count  = 0;
+
+    function set_route_title($title, $id = null) {
+        // if we are on the map page, set the title to the route name, previously set in post_title
+        if ($id == get_option(TRUFI_MAP_PAGE_ID_OPTION)) {
+            global $post;
+            return $post->post_title;
+        }
+        return $title;
+    }
+
+    add_filter('the_title', 'set_route_title', 10, 2);
+
+    function trufi_remove_title_filter_nav_menu($nav_menu, $args) {
+        // we are working with menu, so remove the title filter
+        remove_filter('the_title', 'set_route_title', 10, 2);
+        return $nav_menu;
+    }
+
+    // this filter fires just before the nav menu item creation process
+    add_filter('pre_wp_nav_menu', 'trufi_remove_title_filter_nav_menu', 10, 2);
+
+    function trufi_add_title_filter_non_menu($items, $args) {
+        // we are done working with menu, so add the title filter back
+        add_filter('the_title', 'set_route_title', 10, 2);
+        return $items;
+    }
+
+    // this filter fires after nav menu item creation is done
+    add_filter('wp_nav_menu_items', 'trufi_add_title_filter_non_menu', 10, 2);
+
+    global $wp_query;
+    $wp_query->is_singular = true;
+    $wp_query->is_page     = true;
+    $wp_query->is_home     = false;
+}
+
+/**
+ * Server-renders the "Paradas" (stops) <li> list for the route detail page:
+ * doing it in PHP (rather than only via JS from the localized pattern data)
+ * means stop names - real content, and useful for SEO - are present even
+ * without JS, and match what map-template.html's script decorates with
+ * marker interactivity.
+ *
+ * @param array $stops List of ['name'=>, 'lat'=>, 'lon'=>, 'code'=>].
+ *
+ * @return string
+ */
+function trufi_render_stops_list_html(array $stops): string {
+    if (empty($stops)) {
+        return '<li class="trufi-index-empty">No hay paradas registradas para esta ruta.</li>';
+    }
+
+    $lastIndex = count($stops) - 1;
+    $html      = '';
+    foreach ($stops as $i => $stop) {
+        $variant = $i === 0 ? 'is-start' : ($i === $lastIndex ? 'is-end' : '');
+        $name    = $stop['name'] !== '' ? $stop['name'] : 'Innominada';
+        $html    .= sprintf(
+            '<li class="trufi-stop %s" data-stop-index="%d" data-lat="%s" data-lon="%s"><span class="trufi-stop-dot" aria-hidden="true"></span><span class="trufi-stop-name">%s</span></li>',
+            esc_attr($variant),
+            (int) $i,
+            esc_attr($stop['lat']),
+            esc_attr($stop['lon']),
+            esc_html($name)
+        );
+    }
+
+    return $html;
 }
 
 /**
@@ -136,49 +172,15 @@ function trufi_maps_template_redirect() {
  * @return void
  */
 function trufi_maps_render_routes_index() {
-    // This page's content is fully self-contained interactive markup (JSON
-    // + inline JS with embedded HTML-like strings). None of the_content's
-    // default transforms (wpautop, do_shortcode, wp_filter_content_tags,
-    // convert_smilies, etc.) are HTML/JS-aware, and each has been observed
-    // corrupting the script by treating fragments of it as real markup.
-    // Bypass the whole chain rather than chase filters one at a time.
+    // This page's content is static server-rendered HTML now; the search UI
+    // and map are wired up by enqueued assets (see enqueue-scripts.php), not
+    // inline script. Still bypass the_content's filters (wpautop etc.): they
+    // reformat plain markup in ways that break the fixed-height app layout.
     remove_all_filters('the_content');
 
-    $apiUrl        = get_option(TRUFI_API_URL_OPTION);
-    $cacheKey      = 'trufi_routes_index_list';
-    $cacheLifetime = get_option(TRUFI_CACHE_TTL_OPTION) * 60 * 60;
-
-    $indexData = get_transient($cacheKey);
-    if (false === $indexData) {
-        $trufiApi  = new TrufiApi($apiUrl);
-        $indexData = $trufiApi->routeIndexList();
-        set_transient($cacheKey, $indexData, $cacheLifetime);
-    }
-
-    $patterns = $indexData['data']['patterns'] ?? [];
-
-    // Group patterns by route shortName so each sidebar entry is a line,
-    // with each pattern underneath as one direction/variant of that line.
-    $lines = [];
-    foreach ($patterns as $pattern) {
-        $shortName = $pattern['route']['shortName'] ?? '';
-        if ($shortName === '') {
-            continue;
-        }
-        if (!isset($lines[$shortName])) {
-            $lines[$shortName] = [
-                'shortName' => $shortName,
-                'mode'      => $pattern['route']['mode'] ?? 'BUS',
-                'patterns'  => [],
-            ];
-        }
-        $lines[$shortName]['patterns'][] = [
-            'code'      => $pattern['code'],
-            'longName'  => $pattern['route']['longName'] ?? '',
-        ];
-    }
-    $lines = array_values($lines);
-    usort($lines, fn($a, $b) => strnatcasecmp($a['shortName'], $b['shortName']));
+    $indexData = trufi_fetch_index_data();
+    $patterns  = $indexData['data']['patterns'] ?? [];
+    $lines     = trufi_group_patterns_by_line($patterns);
 
     $stats = [
         'lines'    => count($lines),
@@ -187,10 +189,6 @@ function trufi_maps_render_routes_index() {
 
     $page_title       = 'Rutas · Explora las líneas sobre el mapa - ' . get_bloginfo('name');
     $page_description = get_option(TRUFI_SITE_DESCRIPTION_OPTION);
-    $line_color       = get_option(TRUFI_LINE_COLOR_OPTION);
-    $map_center_lat   = get_option(TRUFI_MAP_CENTER_LAT_OPTION) ?: '-17.3895';
-    $map_center_lng   = get_option(TRUFI_MAP_CENTER_LNG_OPTION) ?: '-66.1568';
-    $map_zoom         = get_option(TRUFI_MAP_ZOOM_OPTION) ?: '13';
     $show_location     = get_option(TRUFI_SHOW_LOCATION_OPTION, '1');
 
     add_action('wp_head', function () use ($page_title, $page_description) {
@@ -201,17 +199,10 @@ function trufi_maps_render_routes_index() {
     });
 
     $replacement_values = [
-        "{{pageTitle}}"    => esc_html($page_title),
-        "{{callToAction}}" => esc_html($page_description),
-        "{{lineColor}}"    => $line_color,
-        "{{statsLines}}"   => $stats['lines'],
-        "{{statsPatterns}}" => $stats['patterns'],
-        "{{linesData}}"    => wp_json_encode($lines),
-        "{{restUrl}}"      => esc_url_raw(rest_url('trufi/v1/pattern/')),
-        "{{mapCenterLat}}" => (float) $map_center_lat,
-        "{{mapCenterLng}}" => (float) $map_center_lng,
-        "{{mapZoom}}"      => (int) $map_zoom,
-        "{{showLocation}}" => $show_location === '1' ? '' : 'none',
+        "{{pageTitle}}"     => esc_html($page_title),
+        "{{statsLines}}"    => esc_html((string) $stats['lines']),
+        "{{statsPatterns}}" => esc_html((string) $stats['patterns']),
+        "{{showLocation}}"  => $show_location === '1' ? '1' : '0',
     ];
 
     $template_path    = plugin_dir_path(__FILE__) . '../templates/routes-index-template.html';

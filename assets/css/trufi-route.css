@@ -1,0 +1,111 @@
+/**
+ * Single route detail page ("/{base}/{name}/{code}"): hero (back link,
+ * route headline, distance/paradas stats) + a "Paradas" (stops) list next
+ * to the map. Builds on trufi-shared.css (hero, list-title, geo button,
+ * stop dots, Leaflet theme).
+ */
+
+.trufi-route {
+    margin: -1px 0 0;
+    font-family: inherit;
+}
+
+.trufi-route-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--trufi-gray-500);
+    text-decoration: underline;
+    font-size: 13px;
+    margin-bottom: 10px;
+}
+
+.trufi-route-back:hover {
+    color: var(--trufi-white);
+}
+
+.trufi-route-toolbar {
+    display: flex;
+    justify-content: flex-end;
+    padding: 10px 24px;
+    background: var(--trufi-gray-100);
+    border-bottom: 1px solid var(--trufi-gray-500-a);
+}
+
+.trufi-route-body {
+    display: flex;
+    flex-wrap: nowrap;
+    align-items: stretch;
+    min-height: 480px;
+}
+
+.trufi-route-sidebar {
+    flex: 0 1 340px;
+    min-width: 260px;
+    max-height: 70vh;
+    border-right: 1px solid var(--trufi-gray-500-a);
+    display: flex;
+    flex-direction: column;
+    background: var(--trufi-white);
+}
+
+.trufi-stops-list {
+    list-style: none;
+    margin: 0;
+    padding: 4px 12px;
+    overflow-y: auto;
+    flex: 1 1 0;
+    min-height: 0;
+}
+
+.trufi-route-map-wrap {
+    flex: 1 1 0;
+    min-width: 0;
+    position: relative;
+    height: 70vh;
+}
+
+#trufi-route-map {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 0;
+    isolation: isolate;
+}
+
+@media (max-width: 780px) {
+    .trufi-hero h1 {
+        font-size: 20px;
+    }
+
+    .trufi-route-toolbar {
+        padding: 10px 16px;
+        justify-content: flex-start;
+    }
+
+    .trufi-route-body {
+        display: flex;
+        flex-direction: column;
+    }
+
+    /* Map first, then the paradas list, mirroring the index page's mobile
+     * stacking (see trufi-index.css). */
+    .trufi-route-map-wrap {
+        order: 1;
+        height: 320px;
+        min-height: 260px;
+    }
+
+    .trufi-route-sidebar {
+        order: 2;
+        border-right: none;
+        border-top: 1px solid var(--trufi-gray-500-a);
+        max-height: none;
+        min-width: 0;
+    }
+
+    .trufi-stops-list {
+        max-height: 60vh;
+    }
+}

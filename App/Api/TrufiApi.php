@@ -67,11 +67,12 @@ class TrufiApi {
      * @return array|null
      */
     public function fetchRoute(string $routeId): array|null {
-        $query     = 'query parking($id: String!) { 
-                    pattern(id: $id) { 
-                        route { id, shortName, longName }, 
-                        geometry { lat, lon } 
-                    } 
+        $query     = 'query pattern($id: String!) {
+                    pattern(id: $id) {
+                        route { id, shortName, longName, mode },
+                        geometry { lat, lon },
+                        stops { name, lat, lon, code }
+                    }
                  }';
         $variables = '{"id":"' . $routeId . '"}';
 

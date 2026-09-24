@@ -50,6 +50,7 @@ require($plugin_dir . 'functions/functions.php');
 
 require($plugin_dir . 'functions/rewrite-rules.php');
 require($plugin_dir . 'functions/template-redirect.php');
+require($plugin_dir . 'functions/enqueue-scripts.php');
 require($plugin_dir . 'functions/sitemap-provider.php');
 require($plugin_dir . 'functions/rest-api.php');
 

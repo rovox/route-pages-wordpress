@@ -1,312 +1,45 @@
-<style>
-    #map-container {
-        position: relative;
-        width: 100%;
-        height: calc(100vh - 300px);
-        height: calc(100dvh - 300px);
-        min-height: 360px;
-        overflow: hidden;
-    }
+<div class="trufi-route">
+    <div class="trufi-hero">
+        <div class="trufi-hero-copy">
+            <a class="trufi-route-back" href="{{indexUrl}}"><span class="trufi-icon" data-icon="arrowLeft" aria-hidden="true"></span> Ver todas las rutas</a>
+            <h1 id="routeName">{{routeHeadline}}</h1>
+            <p>{{routeSubtitle}}</p>
+        </div>
+        <div class="trufi-hero-stats">
+            <div class="trufi-hero-stat">
+                <strong>{{routeDistance}}</strong>
+                <span>Distancia</span>
+            </div>
+            <div class="trufi-hero-stat">
+                <strong>{{routeStopCount}}</strong>
+                <span>Paradas</span>
+            </div>
+        </div>
+    </div>
 
-    #map {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        z-index: 0;
-        isolation: isolate;
-    }
+    <div class="trufi-route-toolbar">
+        <div class="trufi-store-buttons">
+            <a href="{{googlePlayUrl}}" id="google-play-btn">
+                <img src="{{googlePlayImage}}" alt="Descargar en Google Play">
+            </a>
+            <a href="{{appleStoreUrl}}" id="apple-store-btn">
+                <img src="{{appleStoreImage}}" alt="Descargar en la App Store">
+            </a>
+        </div>
+    </div>
 
-    #map-container .leaflet-top,
-    #map-container .leaflet-bottom {
-        z-index: 400;
-    }
-
-    #map-container .leaflet-control-zoom {
-        border-radius: 10px;
-        overflow: hidden;
-        border: 1px solid rgba(18, 18, 18, 0.35);
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-    }
-
-    #map-container .leaflet-control-zoom a {
-        background: #121212;
-        color: #ffffff;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.22);
-        width: 34px;
-        height: 34px;
-        line-height: 32px;
-        font-size: 20px;
-    }
-
-    #map-container .leaflet-control-zoom a:hover {
-        background: #D81B60;
-        color: #ffffff;
-    }
-
-    #map-container .leaflet-control-zoom a.leaflet-disabled {
-        background: #6C757D;
-        color: rgba(255, 255, 255, 0.6);
-    }
-
-    #map-container .leaflet-control-attribution {
-        background: rgba(255, 255, 255, 0.75);
-        font-size: 10px;
-        color: #6C757D;
-    }
-
-    .trufi-geo-btn {
-        position: absolute;
-        top: 12px;
-        right: 12px;
-        z-index: 400;
-        background: #121212;
-        color: #ffffff;
-        border: none;
-        border-radius: 8px;
-        padding: 8px 14px;
-        font-size: 13px;
-        cursor: pointer;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
-    }
-
-    .trufi-geo-btn:hover,
-    .trufi-geo-btn.is-locating {
-        background: #D81B60;
-    }
-
-    .trufi-geo-toast {
-        position: absolute;
-        top: 12px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: #121212;
-        color: #ffffff;
-        padding: 6px 14px;
-        border-radius: 999px;
-        font-size: 13px;
-        z-index: 500;
-        pointer-events: none;
-        display: none;
-    }
-
-    .trufi-geo-pulse-icon {
-        position: relative;
-        width: 14px;
-        height: 14px;
-        border-radius: 50%;
-        background: #1971c2;
-        border: 2px solid #fff;
-    }
-
-    .trufi-geo-pulse-icon::after {
-        content: '';
-        position: absolute;
-        inset: -6px;
-        border-radius: 50%;
-        border: 2px solid rgba(25, 113, 194, 0.6);
-        animation: trufi-geo-pulse 1.6s ease-out infinite;
-    }
-
-    @keyframes trufi-geo-pulse {
-        0% {
-            transform: scale(0.5);
-            opacity: 1;
-        }
-        100% {
-            transform: scale(2.2);
-            opacity: 0;
-        }
-    }
-
-    .app-store-buttons {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        justify-content: flex-start;
-        flex-direction: column;
-        margin-bottom: 10px;
-
-        @media all and (min-width: 500px) {
-            flex-direction: row;
-        }
-    }
-
-    #google-play-btn img,
-    #apple-store-btn img {
-        max-width: 200px;
-        height: auto;
-    }
-
-    .trufi-arrow-wrap {
-        pointer-events: none;
-    }
-
-    .trufi-arrow {
-        font-size: 16px;
-        line-height: 1;
-        text-shadow: 0 0 2px #fff, 0 0 2px #fff;
-    }
-</style>
-
-<h2 id="routeName">{{routeName}}</h2>
-<p class="trufi-route-description">{{routeDescription}}</p>
-<div class="app-store-buttons">
-    <a href="{{googlePlayUrl}}" id="google-play-btn">
-        <img src="{{googlePlayImage}}" alt="Descargar en Google Play">
-    </a>
-    <a href="{{appleStoreUrl}}" id="apple-store-btn">
-        <img src="{{appleStoreImage}}" alt="Descargar en la App Store">
-    </a>
+    <div class="trufi-route-body">
+        <div class="trufi-route-sidebar">
+            <div class="trufi-list-title">
+                <span class="trufi-list-title-label"><span class="trufi-icon" data-icon="route" aria-hidden="true"></span> Paradas</span>
+                <button type="button" class="trufi-icon-btn" id="trufi-route-share" title="Compartir esta ruta"><span class="trufi-icon" data-icon="share" aria-hidden="true"></span></button>
+            </div>
+            <ul class="trufi-stops-list" id="trufi-route-stops">{{stopsListHtml}}</ul>
+        </div>
+        <div class="trufi-route-map-wrap">
+            <div class="trufi-map-hint" id="trufi-route-map-hint"></div>
+            <div id="trufi-route-map" class="trufi-map"></div>
+            <button type="button" class="trufi-geo-btn" id="trufi-geo-btn" title="Marcar dónde estoy" data-show-location="{{showLocation}}"><span class="trufi-icon" data-icon="locate" aria-hidden="true"></span> Mi ubicación</button>
+        </div>
+    </div>
 </div>
-<div id="map-container">
-    <div id="map"></div>
-    <button type="button" class="trufi-geo-btn" id="trufi-geo-btn" title="Marcar dónde estoy" style="display: {{showLocation}};">Mi ubicación</button>
-    <div class="trufi-geo-toast" id="trufi-geo-toast"></div>
-</div>
-<script>
-    const data = {{routeData}};
-    const lineColor = '{{lineColor}}';
-    const map = L.map('map', { zoomControl: false }).setView([0, 0], 13);
-    L.control.zoom({ position: 'bottomright' }).addTo(map);
-
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> and <a href="https://trufi-association.org">Trufi Association</a> contributors',
-    }).addTo(map);
-
-    const coordinates = data.data.pattern.geometry.map((point) => [point.lat, point.lon]);
-    const polyline = L.polyline(coordinates, {
-        color: lineColor,
-        weight: '{{lineWeight}}'
-    }).addTo(map);
-
-    function bearingDeg(a, b) {
-        const dLon = (b[1] - a[1]) * Math.PI / 180;
-        const lat1 = a[0] * Math.PI / 180;
-        const lat2 = b[0] * Math.PI / 180;
-        const y = Math.sin(dLon) * Math.cos(lat2);
-        const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
-        return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
-    }
-
-    function arrowMarker(at, angle) {
-        return L.marker(at, {
-            icon: L.divIcon({
-                className: 'trufi-arrow-wrap',
-                html: '<div class="trufi-arrow" style="transform:rotate(' + angle.toFixed(1) + 'deg);color:' + lineColor + ';">➤</div>',
-                iconSize: [0, 0],
-            }),
-            interactive: false,
-            keyboard: false,
-        });
-    }
-
-    function decorateDirection(coords, longName) {
-        const base = longName.split(':').slice(1).join(':').trim() || longName;
-        const parts = base.split('→').map(function (s) { return s.trim(); });
-
-        const count = Math.max(3, Math.min(8, Math.floor(coords.length / 60)));
-        const spacing = coords.length / (count + 1);
-        let acc = 0;
-        for (let i = 0; i < coords.length - 1; i++) {
-            const a = coords[i];
-            const b = coords[i + 1];
-            const seg = Math.hypot(b[0] - a[0], b[1] - a[1]);
-            if (seg <= 0) continue;
-            const angle = bearingDeg(a, b);
-            let p = acc;
-            while (p + spacing <= acc + seg) {
-                const f = (p - acc) / seg;
-                arrowMarker([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f], angle).addTo(map);
-                p += spacing;
-            }
-            acc += seg;
-        }
-
-        if (coords.length > 0) {
-            const start = L.circleMarker(coords[0], { radius: 6, color: '#fff', weight: 2, fillColor: '#2e7d32', fillOpacity: 1 }).addTo(map);
-            const end = L.circleMarker(coords[coords.length - 1], { radius: 6, color: '#fff', weight: 2, fillColor: '#c62828', fillOpacity: 1 }).addTo(map);
-            if (parts[0]) start.bindTooltip(parts[0], { sticky: true, direction: 'right', offset: [8, 0] });
-            if (parts[1]) end.bindTooltip(parts[1], { sticky: true, direction: 'left', offset: [-8, 0] });
-        }
-    }
-
-    decorateDirection(coordinates, data.data.pattern.route.longName);
-
-    map.fitBounds(polyline.getBounds());
-
-    const geoBtn = document.getElementById('trufi-geo-btn');
-    const toastEl = document.getElementById('trufi-geo-toast');
-    const geoLayer = L.layerGroup().addTo(map);
-
-    function toast(msg) {
-        toastEl.textContent = msg;
-        toastEl.style.display = 'block';
-        clearTimeout(toast._t);
-        toast._t = setTimeout(function () { toastEl.style.display = 'none'; }, 2500);
-    }
-
-    function showUserLocation(latlng, accuracy) {
-        geoLayer.clearLayers();
-        const icon = L.divIcon({
-            className: 'trufi-geo-pulse-icon',
-            iconSize: [14, 14],
-            iconAnchor: [7, 7],
-        });
-        L.marker(latlng, { icon: icon, zIndexOffset: 1000 }).addTo(geoLayer);
-        L.circle(latlng, { radius: accuracy || 60, color: '#1971c2', weight: 1, fillColor: '#1971c2', fillOpacity: 0.15 }).addTo(geoLayer);
-        if (map.getZoom() < 15) map.setZoom(15);
-        map.panTo(latlng);
-        toast('Tu ubicación marcada en el mapa');
-    }
-
-    function showUserLocationIp(latlng) {
-        geoLayer.clearLayers();
-        const icon = L.divIcon({
-            className: 'trufi-geo-pulse-icon',
-            iconSize: [14, 14],
-            iconAnchor: [7, 7],
-        });
-        L.marker(latlng, { icon: icon, zIndexOffset: 1000 }).addTo(geoLayer);
-        L.circle(latlng, { radius: 3000, color: '#6741d9', weight: 1, dashArray: '6 4', fillColor: '#6741d9', fillOpacity: 0.1 }).addTo(geoLayer);
-        map.panTo(latlng);
-        toast('Ubicación aproximada por IP (según tu conexión)');
-    }
-
-    function locateByIp() {
-        fetch('https://ipwho.is/')
-            .then(function (r) { return r.json(); })
-            .then(function (d) {
-                if (!d.success || !d.latitude || !d.longitude) throw new Error('lookup failed');
-                geoBtn.classList.remove('is-locating');
-                showUserLocationIp([d.latitude, d.longitude]);
-            })
-            .catch(function () {
-                geoBtn.classList.remove('is-locating');
-                toast('No se pudo obtener tu ubicación.');
-            });
-    }
-
-    function locateUser() {
-        geoBtn.classList.add('is-locating');
-        if (!('geolocation' in navigator)) {
-            locateByIp();
-            return;
-        }
-        map.locate({ setView: false, watch: false, enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
-    }
-
-    if (geoBtn) {
-        geoBtn.addEventListener('click', locateUser);
-        map.on('locationfound', function (e) {
-            geoBtn.classList.remove('is-locating');
-            showUserLocation(e.latlng, e.accuracy);
-        });
-        map.on('locationerror', function () {
-            geoBtn.classList.remove('is-locating');
-            toast('GPS no disponible, ubicando por IP...');
-            locateByIp();
-        });
-    }
-</script>

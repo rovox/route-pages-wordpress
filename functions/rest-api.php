@@ -1,7 +1,5 @@
 <?php
 
-use App\Api\TrufiApi;
-
 /**
  * Lightweight REST endpoint used by the routes index page to fetch a single
  * pattern's geometry on demand (clicking a route in the sidebar), instead of
@@ -29,17 +27,8 @@ function trufi_rest_get_pattern(WP_REST_Request $request): WP_REST_Response {
     // Path segments captured by the rewrite are NOT url-decoded by WP. The
     // index page encodes pattern codes (encodeURIComponent) so colons arrive
     // as %3A; decode them or the GraphQL lookup fails with 404.
-    $mapId         = rawurldecode($request->get_param('id'));
-    $apiUrl        = get_option(TRUFI_API_URL_OPTION);
-    $cacheKey      = 'trufi_route_data_' . $mapId;
-    $cacheLifetime = get_option(TRUFI_CACHE_TTL_OPTION) * 60 * 60;
-
-    $routeData = get_transient($cacheKey);
-    if (false === $routeData) {
-        $trufiApi  = new TrufiApi($apiUrl);
-        $routeData = $trufiApi->fetchRoute($mapId);
-        set_transient($cacheKey, $routeData, $cacheLifetime);
-    }
+    $mapId     = rawurldecode($request->get_param('id'));
+    $routeData = trufi_fetch_route_data($mapId);
 
     if (empty($routeData['data']['pattern'])) {
         return new WP_REST_Response(['error' => 'Route not found'], 404);
