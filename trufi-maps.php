@@ -18,7 +18,7 @@
 if (!function_exists('get_plugin_data')) {
     require_once(ABSPATH . 'wp-admin/includes/plugin.php');
 }
-$plugin_data = get_plugin_data(__FILE__, false);
+$plugin_data = get_plugin_data(__FILE__, false, false);
 define('TRUFI_ROUTES_PLUGIN_VERSION', ($plugin_data && $plugin_data['Version']) ? $plugin_data['Version'] : '1.0.0');
 
 // check php version if less than 8.0 don't load
@@ -28,7 +28,7 @@ if (version_compare(phpversion(), $plugin_data['RequiresPHP'], '<')) {
         global $plugin_data;
         ?>
         <div class="notice notice-error is-dismissible">
-            <p><?php _e("Trufi Route Pages plugin requires PHP {$plugin_data['RequiresPHP']} or higher. Please update your PHP version.", 'TrufiApi-maps'); ?></p>
+            <p><?php echo 'Trufi Route Pages plugin requires PHP ' . esc_html($plugin_data['RequiresPHP']) . ' or higher. Please update your PHP version.'; ?></p>
         </div>
         <?php
     }
@@ -38,6 +38,11 @@ if (version_compare(phpversion(), $plugin_data['RequiresPHP'], '<')) {
 $plugin_dir = plugin_dir_path(__FILE__);
 $plugin_url = plugin_dir_url(__FILE__);
 
+// Load plugin text domain for translations (must be 'init' or later per WP 6.7+)
+add_action('init', function() {
+    load_plugin_textdomain('TrufiApi-maps', false, dirname(plugin_basename(__FILE__)) . '/languages');
+});
+
 require($plugin_dir . 'App/Utility.php');
 require($plugin_dir . 'functions/constants.php');
 require($plugin_dir . 'App/Api/TrufiApi.php');
@@ -46,6 +51,7 @@ require($plugin_dir . 'functions/functions.php');
 require($plugin_dir . 'functions/rewrite-rules.php');
 require($plugin_dir . 'functions/template-redirect.php');
 require($plugin_dir . 'functions/sitemap-provider.php');
+require($plugin_dir . 'functions/rest-api.php');
 
 if (is_admin()) {
     require($plugin_dir . 'admin/admin-settings.php');

@@ -111,6 +111,17 @@
                     <p class="description"><?php _e('Enter the time to live (in hours) for the sitemap cache. Set to 0 to disable.', 'TrufiApi-maps'); ?></p>
                 </td>
             </tr>
+            <tr>
+                <th scope="row">
+                    <label for="trufi_map_center_lat"><?php _e('Default Map Center', 'TrufiApi-maps'); ?></label>
+                </th>
+                <td>
+                    <input type="text" name="trufi_map_center_lat" id="trufi_map_center_lat" value="<?php echo esc_attr($map_center_lat); ?>" class="small-text" placeholder="Latitude">
+                    <input type="text" name="trufi_map_center_lng" id="trufi_map_center_lng" value="<?php echo esc_attr($map_center_lng); ?>" class="small-text" placeholder="Longitude">
+                    <input type="number" name="trufi_map_zoom" id="trufi_map_zoom" value="<?php echo esc_attr($map_zoom); ?>" min="1" max="20" class="small-text" placeholder="Zoom">
+                    <p class="description"><?php _e('Latitude, longitude and zoom level used to center the routes index map before a route is selected.', 'TrufiApi-maps'); ?></p>
+                </td>
+            </tr>
         </table>
         <?php submit_button(__('Save Changes', 'TrufiApi-maps')); ?>
     </form>

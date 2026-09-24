@@ -59,5 +59,8 @@ wp-config.php
 docker-compose.yml
 docker
 
+# Local dev env vars (see .env.dev.example for the tracked template)
+.env.dev
+
 # Plugin
 /cache/sitemap.json

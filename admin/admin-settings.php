@@ -18,6 +18,12 @@ function trufi_routes_settings_page() {
     $map_page_id       = get_option(TRUFI_MAP_PAGE_ID_OPTION);
     $cache_ttl         = get_option(TRUFI_CACHE_TTL_OPTION);
     if (!$cache_ttl) $cache_ttl = 24;
+    $map_center_lat = get_option(TRUFI_MAP_CENTER_LAT_OPTION);
+    if (!$map_center_lat) $map_center_lat = '-17.3895';
+    $map_center_lng = get_option(TRUFI_MAP_CENTER_LNG_OPTION);
+    if (!$map_center_lng) $map_center_lng = '-66.1568';
+    $map_zoom = get_option(TRUFI_MAP_ZOOM_OPTION);
+    if (!$map_zoom) $map_zoom = '13';
 
 
     if (isset($_POST['trufi_api_options_nonce'])) {
@@ -35,6 +41,9 @@ function trufi_routes_settings_page() {
         $apple_store_image = $_POST['trufi_apple_store_image'];
         $map_page_id       = $_POST['trufi_map_page_id'];
         $cache_ttl         = $_POST['trufi_cache_ttl'];
+        $map_center_lat    = $_POST['trufi_map_center_lat'];
+        $map_center_lng    = $_POST['trufi_map_center_lng'];
+        $map_zoom          = $_POST['trufi_map_zoom'];
 
         update_option(TRUFI_API_URL_OPTION, $api_url);
         update_option(TRUFI_SITE_DESCRIPTION_OPTION, $site_description);
@@ -46,6 +55,9 @@ function trufi_routes_settings_page() {
         update_option(TRUFI_APPLE_STORE_IMAGE_OPTION, $apple_store_image);
         update_option(TRUFI_MAP_PAGE_ID_OPTION, $map_page_id);
         update_option(TRUFI_CACHE_TTL_OPTION, $cache_ttl);
+        update_option(TRUFI_MAP_CENTER_LAT_OPTION, $map_center_lat);
+        update_option(TRUFI_MAP_CENTER_LNG_OPTION, $map_center_lng);
+        update_option(TRUFI_MAP_ZOOM_OPTION, $map_zoom);
 
         delete_trufi_transients();
         trufi_maps_add_rewrite_rules();

@@ -19,9 +19,7 @@ class TrufiRoutesSitemapProvider extends WP_Sitemaps_Provider {
         $this->object_type          = 'routes';
         $this->cache_lifetime_hours = get_option(TRUFI_CACHE_TTL_OPTION) * 60 * 60;
         $this->cache_key = 'trufi_routes_sitemap_xml';
-
-        $map_page_id     = get_option(TRUFI_MAP_PAGE_ID_OPTION);
-        $this->base_path = ($map_page_id) ? get_page_uri($map_page_id) : 'routes';
+        $this->base_path = trufi_get_base_path();
     }
 
     public function get_name(): string {
@@ -29,10 +27,23 @@ class TrufiRoutesSitemapProvider extends WP_Sitemaps_Provider {
     }
 
     public function get_max_num_pages($object_subtype = ''): int {
-        return 1;
+        $max_urls = wp_sitemaps_get_max_urls($this->object_type);
+        return (int) max(1, ceil(count($this->getCachedRouteUrls()) / $max_urls));
     }
 
     public function get_url_list($page_num, $object_subtype = ''): array {
+        $max_urls = wp_sitemaps_get_max_urls($this->object_type);
+        $offset   = ($page_num - 1) * $max_urls;
+
+        return array_slice($this->getCachedRouteUrls(), $offset, $max_urls);
+    }
+
+    /**
+     * Fetch the full route URL list, using the transient cache when available.
+     *
+     * @return array
+     */
+    private function getCachedRouteUrls(): array {
         $url_list = get_transient($this->cache_key);
         if (false === $url_list) {
             $url_list = $this->getRouteUrls();

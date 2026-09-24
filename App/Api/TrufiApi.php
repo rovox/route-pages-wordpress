@@ -91,4 +91,20 @@ class TrufiApi {
         }';
         return $this->query($body);
     }
+
+    /**
+     * Fetch a lightweight list of all patterns (route variants) for the
+     * routes index/directory page: enough to build the sidebar and search
+     * without pulling full geometry for every pattern up front.
+     *
+     * @return array|null
+     */
+    public function routeIndexList(): array|null {
+        $body = '{
+            patterns{
+                code, route{ shortName, longName, mode }
+            }
+        }';
+        return $this->query($body);
+    }
 }

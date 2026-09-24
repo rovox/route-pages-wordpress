@@ -1,0 +1,61 @@
+# Local development stack for Trufi Route Pages.
+#
+# Named "docker-compose.dev.yml" (not "docker-compose.yml") on purpose: this
+# repo's .gitignore excludes any file literally named "docker-compose.yml",
+# plus any "docker"/".docker" path, to keep ad-hoc local compose files out of
+# version control. This file is the tracked exception.
+#
+# Usage: see the "Local development with Docker" section in README.md.
+
+services:
+  mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-changeme_root}
+      MYSQL_DATABASE: ${WP_DBNAME:-wordpress}
+      MYSQL_USER: ${WP_DBUSER:-wordpress}
+      MYSQL_PASSWORD: ${WP_DBPASSWORD:-changeme}
+    volumes:
+      - trufi_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-changeme_root}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  wordpress:
+    image: wordpress:latest
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "${WP_PORT:-8081}:80"
+    environment:
+      WORDPRESS_DB_HOST: mysql
+      WORDPRESS_DB_NAME: ${WP_DBNAME:-wordpress}
+      WORDPRESS_DB_USER: ${WP_DBUSER:-wordpress}
+      WORDPRESS_DB_PASSWORD: ${WP_DBPASSWORD:-changeme}
+      WORDPRESS_DEBUG: "${WORDPRESS_DEBUG:-1}"
+    volumes:
+      - trufi_wp_data:/var/www/html
+      # Live-mount the plugin repo so edits are reflected immediately.
+      - ./:/var/www/html/wp-content/plugins/trufi-route-pages
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    ports:
+      - "${PMA_PORT:-8080}:80"
+    environment:
+      PMA_HOST: mysql
+      PMA_USER: ${WP_DBUSER:-wordpress}
+      PMA_PASSWORD: ${WP_DBPASSWORD:-changeme}
+
+volumes:
+  trufi_db_data:
+  trufi_wp_data:
