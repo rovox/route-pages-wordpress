@@ -169,7 +169,7 @@
     const data = {{routeData}};
     const lineColor = '{{lineColor}}';
     const map = L.map('map', { zoomControl: false }).setView([0, 0], 13);
-    L.control.zoom({ position: 'bottomleft' }).addTo(map);
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> and <a href="https://trufi-association.org">Trufi Association</a> contributors',
@@ -267,7 +267,7 @@
             return;
         }
         geoBtn.classList.add('is-locating');
-        map.locate({ setView: false, watch: false, maximumAge: 60000, timeout: 12000 });
+        map.locate({ setView: false, watch: false, enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
     }
 
     geoBtn.addEventListener('click', locateUser);

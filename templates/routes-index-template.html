@@ -94,24 +94,35 @@
 
     .trufi-map-searchbar {
         position: absolute;
-        top: 12px;
-        left: 12px;
-        right: 12px;
+        top: 8px;
+        left: 8px;
+        right: 8px;
         z-index: 500;
         display: flex;
-        flex-direction: column;
-        gap: 8px;
-        background: rgba(255, 255, 255, 0.94);
+        align-items: center;
+        flex-wrap: nowrap;
+        gap: 6px;
+        background: rgba(255, 255, 255, 0.95);
         border: 1px solid rgba(33, 37, 41, 0.18);
         border-radius: 10px;
-        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
-        padding: 10px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+        padding: 6px 8px;
     }
 
-    .trufi-map-searchbar input,
+    .trufi-map-searchbar input {
+        flex: 1 1 140px;
+        min-width: 0;
+        padding: 7px 10px;
+        border: 1px solid var(--trufi-gray-500);
+        border-radius: 6px;
+        font-size: 14px;
+        background: var(--trufi-white);
+    }
+
     .trufi-map-searchbar select {
-        width: 100%;
-        padding: 9px 12px;
+        flex: 0 1 auto;
+        max-width: 42%;
+        padding: 7px 8px;
         border: 1px solid var(--trufi-gray-500);
         border-radius: 6px;
         font-size: 14px;
@@ -120,8 +131,10 @@
 
     .trufi-map-searchbar-actions {
         display: flex;
-        gap: 8px;
+        gap: 6px;
         align-items: center;
+        flex: 0 0 auto;
+        margin-left: auto;
     }
 
     .trufi-map-searchbar-actions button {
@@ -129,10 +142,11 @@
         color: var(--trufi-white);
         border: none;
         border-radius: 6px;
-        padding: 8px 14px;
+        padding: 6px 10px;
         font-size: 13px;
         cursor: pointer;
-        flex: 1 1 0;
+        white-space: nowrap;
+        flex: 0 0 auto;
     }
 
     .trufi-map-searchbar-actions button:hover {
@@ -143,11 +157,40 @@
         background: var(--trufi-pink);
     }
 
+    @media (max-width: 640px) {
+        .trufi-map-searchbar {
+            flex-wrap: wrap;
+        }
+        .trufi-map-searchbar input {
+            flex-basis: 100%;
+        }
+        .trufi-map-searchbar select {
+            flex: 1 1 auto;
+            max-width: none;
+        }
+        .trufi-map-searchbar-actions {
+            margin-left: 0;
+        }
+    }
+
     .trufi-index-list {
         flex: 1 1 0;
         min-height: 0;
         overflow-y: auto;
         padding: 8px;
+    }
+
+    .trufi-list-title {
+        flex: 0 0 auto;
+        padding: 8px 12px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--trufi-pink);
+        border-bottom: 1px solid var(--trufi-gray-500-a);
+        background: var(--trufi-white);
+        z-index: 20;
     }
 
     .trufi-line {
@@ -332,6 +375,7 @@
 
     <div class="trufi-index-body">
         <div class="trufi-index-sidebar">
+            <div class="trufi-list-title">Rutas</div>
             <div class="trufi-index-list" id="trufi-index-list"></div>
         </div>
         <div class="trufi-index-map-wrap">
@@ -367,7 +411,7 @@
     const modeLabels = { BUS: 'Bus', TRAM: 'Tranvía', GONDOLA: 'Teleférico', RAIL: 'Tren' };
 
     const map = L.map('trufi-index-map', { zoomControl: false }).setView([{{mapCenterLat}}, {{mapCenterLng}}], {{mapZoom}});
-    L.control.zoom({ position: 'bottomleft' }).addTo(map);
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> and <a href="https://trufi-association.org">Trufi Association</a> contributors',
     }).addTo(map);
@@ -572,7 +616,7 @@
             return;
         }
         geoBtn.classList.add('is-locating');
-        map.locate({ setView: false, watch: false, maximumAge: 60000, timeout: 12000 });
+        map.locate({ setView: false, watch: false, enableHighAccuracy: true, maximumAge: 0, timeout: 20000 });
     }
 
     geoBtn.addEventListener('click', locateUser);

@@ -183,7 +183,7 @@ function trufi_maps_render_routes_index() {
         'patterns' => count($patterns),
     ];
 
-    $page_title       = get_the_title() . ' - ' . get_bloginfo('name');
+    $page_title       = 'Rutas · Explora las líneas sobre el mapa - ' . get_bloginfo('name');
     $page_description = get_option(TRUFI_SITE_DESCRIPTION_OPTION);
     $line_color       = get_option(TRUFI_LINE_COLOR_OPTION);
     $map_center_lat   = get_option(TRUFI_MAP_CENTER_LAT_OPTION) ?: '-17.3895';
@@ -193,6 +193,9 @@ function trufi_maps_render_routes_index() {
     add_action('wp_head', function () use ($page_title, $page_description) {
         trufi_add_header_tags($page_title, $page_description);
     }, 7);
+    add_filter('pre_get_document_title', function () use ($page_title) {
+        return $page_title;
+    });
 
     $replacement_values = [
         "{{pageTitle}}"    => esc_html($page_title),
@@ -212,6 +215,7 @@ function trufi_maps_render_routes_index() {
     $template_content = str_replace(array_keys($replacement_values), array_values($replacement_values), $template_content);
 
     global $post;
+    $post->post_title   = $page_title;
     $post->post_content = minify_html($template_content);
 }
 
