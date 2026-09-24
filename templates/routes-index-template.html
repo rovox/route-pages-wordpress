@@ -11,6 +11,11 @@
         --trufi-black: #000000;
         margin: -1px 0 0;
         font-family: inherit;
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 82px);
+        height: calc(100dvh - 82px);
+        min-height: 420px;
     }
 
     .trufi-index * {
@@ -20,12 +25,13 @@
     .trufi-index-hero {
         background: var(--trufi-dark);
         color: var(--trufi-white);
-        padding: 48px 24px;
+        padding: 20px 24px;
         display: flex;
         flex-wrap: wrap;
         align-items: center;
         justify-content: space-between;
-        gap: 24px;
+        gap: 16px;
+        flex: 0 0 auto;
     }
 
     .trufi-index-hero-copy {
@@ -40,25 +46,25 @@
 
     .trufi-index-hero h1 {
         color: var(--trufi-pink);
-        font-size: 34px;
+        font-size: 24px;
         line-height: 1.2;
-        margin: 0 0 12px;
+        margin: 0 0 8px;
     }
 
     .trufi-index-hero p {
         color: var(--trufi-gray-500);
         margin: 0;
-        font-size: 15px;
+        font-size: 14px;
     }
 
     .trufi-index-stats {
         display: flex;
-        gap: 32px;
+        gap: 24px;
     }
 
     .trufi-index-stat strong {
         display: block;
-        font-size: 32px;
+        font-size: 22px;
         color: var(--trufi-pink);
         line-height: 1;
     }
@@ -66,44 +72,59 @@
     .trufi-index-stat span {
         display: block;
         color: var(--trufi-gray-500);
-        font-size: 13px;
+        font-size: 12px;
         margin-top: 4px;
     }
 
     .trufi-index-body {
         display: flex;
-        flex-wrap: wrap;
-        min-height: 640px;
+        flex-wrap: nowrap;
+        flex: 1 1 0;
+        min-height: 0;
     }
 
     .trufi-index-sidebar {
-        width: 340px;
-        max-width: 100%;
-        flex: 1 1 340px;
+        flex: 0 1 320px;
+        min-width: 260px;
         border-right: 1px solid var(--trufi-gray-500-a);
         display: flex;
         flex-direction: column;
+        min-height: 0;
     }
 
-    .trufi-index-controls {
-        padding: 16px;
-        border-bottom: 1px solid var(--trufi-gray-500-a);
+    .trufi-map-searchbar {
+        position: absolute;
+        top: 12px;
+        left: 12px;
+        right: 12px;
+        z-index: 500;
         display: flex;
         flex-direction: column;
         gap: 8px;
+        background: rgba(255, 255, 255, 0.94);
+        border: 1px solid rgba(33, 37, 41, 0.18);
+        border-radius: 10px;
+        box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+        padding: 10px;
     }
 
-    .trufi-index-controls input,
-    .trufi-index-controls select {
+    .trufi-map-searchbar input,
+    .trufi-map-searchbar select {
         width: 100%;
-        padding: 10px 12px;
+        padding: 9px 12px;
         border: 1px solid var(--trufi-gray-500);
         border-radius: 6px;
         font-size: 14px;
+        background: var(--trufi-white);
     }
 
-    .trufi-index-controls button {
-        align-self: flex-start;
+    .trufi-map-searchbar-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+
+    .trufi-map-searchbar-actions button {
         background: var(--trufi-black);
         color: var(--trufi-white);
         border: none;
@@ -111,11 +132,21 @@
         padding: 8px 14px;
         font-size: 13px;
         cursor: pointer;
+        flex: 1 1 0;
+    }
+
+    .trufi-map-searchbar-actions button:hover {
+        background: var(--trufi-pink);
+    }
+
+    .trufi-geo-btn.is-locating {
+        background: var(--trufi-pink);
     }
 
     .trufi-index-list {
+        flex: 1 1 0;
+        min-height: 0;
         overflow-y: auto;
-        max-height: 640px;
         padding: 8px;
     }
 
@@ -167,9 +198,10 @@
     }
 
     .trufi-index-map-wrap {
-        flex: 2 1 480px;
+        flex: 1 1 0;
+        min-width: 0;
+        min-height: 0;
         position: relative;
-        min-height: 480px;
     }
 
     #trufi-index-map {
@@ -177,11 +209,13 @@
         inset: 0;
         width: 100%;
         height: 100%;
+        z-index: 0;
+        isolation: isolate;
     }
 
     .trufi-index-map-hint {
         position: absolute;
-        top: 12px;
+        bottom: 12px;
         left: 50%;
         transform: translateX(-50%);
         background: var(--trufi-dark);
@@ -189,7 +223,7 @@
         padding: 6px 14px;
         border-radius: 999px;
         font-size: 13px;
-        z-index: 1000;
+        z-index: 500;
         pointer-events: none;
     }
 
@@ -207,6 +241,73 @@
         font-size: 16px;
         line-height: 1;
         text-shadow: 0 0 2px #fff, 0 0 2px #fff;
+    }
+
+    .trufi-index .leaflet-top,
+    .trufi-index .leaflet-bottom {
+        z-index: 400;
+    }
+
+    .trufi-index .leaflet-control-zoom {
+        border-radius: 10px;
+        overflow: hidden;
+        border: 1px solid rgba(18, 18, 18, 0.35);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+    }
+
+    .trufi-index .leaflet-control-zoom a {
+        background: var(--trufi-dark);
+        color: var(--trufi-white);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.22);
+        width: 34px;
+        height: 34px;
+        line-height: 32px;
+        font-size: 20px;
+    }
+
+    .trufi-index .leaflet-control-zoom a:hover {
+        background: var(--trufi-pink);
+        color: var(--trufi-white);
+    }
+
+    .trufi-index .leaflet-control-zoom a.leaflet-disabled {
+        background: var(--trufi-gray-600);
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    .trufi-index .leaflet-control-attribution {
+        background: rgba(255, 255, 255, 0.75);
+        font-size: 10px;
+        color: var(--trufi-gray-600);
+    }
+
+    .trufi-geo-pulse-icon {
+        position: relative;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: #1971c2;
+        border: 2px solid #fff;
+    }
+
+    .trufi-geo-pulse-icon::after {
+        content: '';
+        position: absolute;
+        inset: -6px;
+        border-radius: 50%;
+        border: 2px solid rgba(25, 113, 194, 0.6);
+        animation: trufi-geo-pulse 1.6s ease-out infinite;
+    }
+
+    @keyframes trufi-geo-pulse {
+        0% {
+            transform: scale(0.5);
+            opacity: 1;
+        }
+        100% {
+            transform: scale(2.2);
+            opacity: 0;
+        }
     }
 </style>
 
@@ -231,16 +332,19 @@
 
     <div class="trufi-index-body">
         <div class="trufi-index-sidebar">
-            <div class="trufi-index-controls">
+            <div class="trufi-index-list" id="trufi-index-list"></div>
+        </div>
+        <div class="trufi-index-map-wrap">
+            <div class="trufi-map-searchbar">
                 <input type="text" id="trufi-index-search" placeholder="Buscar línea, origen, destino...">
                 <select id="trufi-index-mode-filter">
                     <option value="">Tipo de transporte</option>
                 </select>
-                <button type="button" id="trufi-index-clear">Limpiar</button>
+                <div class="trufi-map-searchbar-actions">
+                    <button type="button" id="trufi-index-clear">Limpiar</button>
+                    <button type="button" class="trufi-geo-btn" id="trufi-geo-btn" title="Marcar dónde estoy">Mi ubicación</button>
+                </div>
             </div>
-            <div class="trufi-index-list" id="trufi-index-list"></div>
-        </div>
-        <div class="trufi-index-map-wrap">
             <div class="trufi-index-map-hint" id="trufi-index-map-hint">Selecciona una línea para verla en el mapa</div>
             <div id="trufi-index-map"></div>
         </div>
@@ -258,10 +362,12 @@
     const modeEl = document.getElementById('trufi-index-mode-filter');
     const clearEl = document.getElementById('trufi-index-clear');
     const hintEl = document.getElementById('trufi-index-map-hint');
+    const geoBtn = document.getElementById('trufi-geo-btn');
 
     const modeLabels = { BUS: 'Bus', TRAM: 'Tranvía', GONDOLA: 'Teleférico', RAIL: 'Tren' };
 
-    const map = L.map('trufi-index-map').setView([{{mapCenterLat}}, {{mapCenterLng}}], {{mapZoom}});
+    const map = L.map('trufi-index-map', { zoomControl: false }).setView([{{mapCenterLat}}, {{mapCenterLng}}], {{mapZoom}});
+    L.control.zoom({ position: 'bottomleft' }).addTo(map);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> and <a href="https://trufi-association.org">Trufi Association</a> contributors',
     }).addTo(map);
@@ -270,6 +376,7 @@
     let activeRow = null;
     const geometryCache = {};
     const overlays = L.layerGroup().addTo(map);
+    const geoLayer = L.layerGroup().addTo(map);
 
     /* Populate the mode filter from whatever modes are actually present. */
     const modes = [...new Set(lines.map((l) => l.mode))];
@@ -436,6 +543,46 @@
         searchEl.value = '';
         modeEl.value = '';
         render();
+    });
+
+    function hint(msg) {
+        hintEl.textContent = msg;
+        hintEl.style.display = 'block';
+        clearTimeout(hint._t);
+        hint._t = setTimeout(function () { hintEl.style.display = 'none'; }, 2500);
+    }
+
+    function showUserLocation(latlng, accuracy) {
+        geoLayer.clearLayers();
+        const icon = L.divIcon({
+            className: 'trufi-geo-pulse-icon',
+            iconSize: [14, 14],
+            iconAnchor: [7, 7],
+        });
+        L.marker(latlng, { icon: icon, zIndexOffset: 1000 }).addTo(geoLayer);
+        L.circle(latlng, { radius: accuracy || 60, color: '#1971c2', weight: 1, fillColor: '#1971c2', fillOpacity: 0.15 }).addTo(geoLayer);
+        if (map.getZoom() < 15) map.setZoom(15);
+        map.panTo(latlng);
+        hint('Tu ubicación marcada en el mapa');
+    }
+
+    function locateUser() {
+        if (!('geolocation' in navigator)) {
+            hint('Tu navegador no permite conocer tu ubicación.');
+            return;
+        }
+        geoBtn.classList.add('is-locating');
+        map.locate({ setView: false, watch: false, maximumAge: 60000, timeout: 12000 });
+    }
+
+    geoBtn.addEventListener('click', locateUser);
+    map.on('locationfound', function (e) {
+        geoBtn.classList.remove('is-locating');
+        showUserLocation(e.latlng, e.accuracy);
+    });
+    map.on('locationerror', function () {
+        geoBtn.classList.remove('is-locating');
+        hint('No se pudo obtener tu ubicación (permiso o GPS no disponibles).');
     });
 
     render();

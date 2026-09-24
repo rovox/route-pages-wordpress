@@ -25,6 +25,8 @@ Working-tree note: `trufi-website-modules/` is a **separate, untracked git repo*
 
 - `templates/map-template.html` is a static shell with `{{placeholder}}` tokens; `template-redirect.php` does a `str_replace` with values fetched from settings (line color, store URLs, etc.) and injects the full GraphQL `{{routeData}}` JSON into a `<script>const data = ...;</script>` block. `templates/routes-index-template.html` follows the same token/`str_replace` pattern for the index page.
 - Map template + header tags hardcode Leaflet 1.7.1 from unpkg and OpenStreetMap tiles (functions/functions.php, map-template.html). No bundler; edit in place.
+- Both templates create maps with `zoomControl: false` and re-add the zoom at `bottomleft`, restyle `.leaflet-control-zoom` (dark/pink theme), and cap `.leaflet-top/.leaflet-bottom` z-index at 400 while the map container gets `z-index: 0; isolation: isolate`. This is load-bearing: the OnePress header is `z-index: 1000`, and without isolation the Leaflet controls (also 1000) escape the map and stack above the sticky header. If you move these styles, keep the isolation.
+- The index keeps its search UI as `.trufi-map-searchbar` floating over the map top and a bottom-center hint; `.trufi-index` is a fixed-height (`100dvh - 82px`) flex column so the page never scrolls, the map only fills the leftover space, and the list fills its column. Both maps have a geolocation "Mi ubicación" button (browser Geolocation API + `map.locate`, needs HTTPS on production; draws a pulsing marker + accuracy circle).
 
 ## Caching & settings
 
