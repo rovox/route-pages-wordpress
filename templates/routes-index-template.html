@@ -1,0 +1,443 @@
+<style>
+    .trufi-index {
+        --trufi-white: #FFFFFF;
+        --trufi-gray-500: #ADB5BD;
+        --trufi-gray-500-a: #ADB5BD80;
+        --trufi-gray-900: #212529;
+        --trufi-pink: #D81B60;
+        --trufi-gray-600: #6C757D;
+        --trufi-gray-100: #F8F9FA;
+        --trufi-dark: #121212;
+        --trufi-black: #000000;
+        margin: -1px 0 0;
+        font-family: inherit;
+    }
+
+    .trufi-index * {
+        box-sizing: border-box;
+    }
+
+    .trufi-index-hero {
+        background: var(--trufi-dark);
+        color: var(--trufi-white);
+        padding: 48px 24px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 24px;
+    }
+
+    .trufi-index-hero-copy {
+        max-width: 640px;
+    }
+
+    .trufi-index-eyebrow {
+        color: var(--trufi-gray-500);
+        font-size: 14px;
+        margin: 0 0 12px;
+    }
+
+    .trufi-index-hero h1 {
+        color: var(--trufi-pink);
+        font-size: 34px;
+        line-height: 1.2;
+        margin: 0 0 12px;
+    }
+
+    .trufi-index-hero p {
+        color: var(--trufi-gray-500);
+        margin: 0;
+        font-size: 15px;
+    }
+
+    .trufi-index-stats {
+        display: flex;
+        gap: 32px;
+    }
+
+    .trufi-index-stat strong {
+        display: block;
+        font-size: 32px;
+        color: var(--trufi-pink);
+        line-height: 1;
+    }
+
+    .trufi-index-stat span {
+        display: block;
+        color: var(--trufi-gray-500);
+        font-size: 13px;
+        margin-top: 4px;
+    }
+
+    .trufi-index-body {
+        display: flex;
+        flex-wrap: wrap;
+        min-height: 640px;
+    }
+
+    .trufi-index-sidebar {
+        width: 340px;
+        max-width: 100%;
+        flex: 1 1 340px;
+        border-right: 1px solid var(--trufi-gray-500-a);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .trufi-index-controls {
+        padding: 16px;
+        border-bottom: 1px solid var(--trufi-gray-500-a);
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .trufi-index-controls input,
+    .trufi-index-controls select {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid var(--trufi-gray-500);
+        border-radius: 6px;
+        font-size: 14px;
+    }
+
+    .trufi-index-controls button {
+        align-self: flex-start;
+        background: var(--trufi-black);
+        color: var(--trufi-white);
+        border: none;
+        border-radius: 6px;
+        padding: 8px 14px;
+        font-size: 13px;
+        cursor: pointer;
+    }
+
+    .trufi-index-list {
+        overflow-y: auto;
+        max-height: 640px;
+        padding: 8px;
+    }
+
+    .trufi-line {
+        border-radius: 8px;
+        margin-bottom: 6px;
+        overflow: hidden;
+        border: 1px solid var(--trufi-gray-500-a);
+    }
+
+    .trufi-line-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 10px;
+        cursor: pointer;
+        background: var(--trufi-gray-100);
+    }
+
+    .trufi-line-badge {
+        background: var(--trufi-pink);
+        color: var(--trufi-white);
+        font-weight: 700;
+        font-size: 12px;
+        min-width: 34px;
+        text-align: center;
+        padding: 6px 4px;
+        border-radius: 6px;
+        flex-shrink: 0;
+    }
+
+    .trufi-line-title {
+        font-size: 14px;
+        color: var(--trufi-gray-900);
+    }
+
+    .trufi-pattern {
+        padding: 8px 10px 8px 52px;
+        font-size: 13px;
+        color: var(--trufi-gray-600);
+        cursor: pointer;
+        border-top: 1px solid var(--trufi-gray-100);
+    }
+
+    .trufi-pattern:hover,
+    .trufi-pattern.is-active {
+        background: var(--trufi-gray-100);
+        color: var(--trufi-pink);
+    }
+
+    .trufi-index-map-wrap {
+        flex: 2 1 480px;
+        position: relative;
+        min-height: 480px;
+    }
+
+    #trufi-index-map {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+    }
+
+    .trufi-index-map-hint {
+        position: absolute;
+        top: 12px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--trufi-dark);
+        color: var(--trufi-white);
+        padding: 6px 14px;
+        border-radius: 999px;
+        font-size: 13px;
+        z-index: 1000;
+        pointer-events: none;
+    }
+
+    .trufi-index-empty {
+        padding: 24px;
+        color: var(--trufi-gray-600);
+        font-size: 14px;
+    }
+
+    .trufi-arrow-wrap {
+        pointer-events: none;
+    }
+
+    .trufi-arrow {
+        font-size: 16px;
+        line-height: 1;
+        text-shadow: 0 0 2px #fff, 0 0 2px #fff;
+    }
+</style>
+
+<div class="trufi-index">
+    <div class="trufi-index-hero">
+        <div class="trufi-index-hero-copy">
+            <p class="trufi-index-eyebrow">Rutas</p>
+            <h1>Explora las líneas sobre el mapa</h1>
+            <p>Consulta el trazado completo de micros, trufis y taxi trufis en la Llajta. Elige una línea para ver por dónde pasa y llega a tu destino sin perderte.</p>
+        </div>
+        <div class="trufi-index-stats">
+            <div class="trufi-index-stat">
+                <strong>{{statsLines}}</strong>
+                <span>Líneas</span>
+            </div>
+            <div class="trufi-index-stat">
+                <strong>{{statsPatterns}}</strong>
+                <span>Rutas Trazadas</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="trufi-index-body">
+        <div class="trufi-index-sidebar">
+            <div class="trufi-index-controls">
+                <input type="text" id="trufi-index-search" placeholder="Buscar línea, origen, destino...">
+                <select id="trufi-index-mode-filter">
+                    <option value="">Tipo de transporte</option>
+                </select>
+                <button type="button" id="trufi-index-clear">Limpiar</button>
+            </div>
+            <div class="trufi-index-list" id="trufi-index-list"></div>
+        </div>
+        <div class="trufi-index-map-wrap">
+            <div class="trufi-index-map-hint" id="trufi-index-map-hint">Selecciona una línea para verla en el mapa</div>
+            <div id="trufi-index-map"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    const lines = {{linesData}};
+    const restUrlBase = "{{restUrl}}";
+    const lineColor = "{{lineColor}}";
+
+    const listEl = document.getElementById('trufi-index-list');
+    const searchEl = document.getElementById('trufi-index-search');
+    const modeEl = document.getElementById('trufi-index-mode-filter');
+    const clearEl = document.getElementById('trufi-index-clear');
+    const hintEl = document.getElementById('trufi-index-map-hint');
+
+    const modeLabels = { BUS: 'Bus', TRAM: 'Tranvía', GONDOLA: 'Teleférico', RAIL: 'Tren' };
+
+    const map = L.map('trufi-index-map').setView([{{mapCenterLat}}, {{mapCenterLng}}], {{mapZoom}});
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> and <a href="https://trufi-association.org">Trufi Association</a> contributors',
+    }).addTo(map);
+
+    let activePolyline = null;
+    let activeRow = null;
+    const geometryCache = {};
+    const overlays = L.layerGroup().addTo(map);
+
+    /* Populate the mode filter from whatever modes are actually present. */
+    const modes = [...new Set(lines.map((l) => l.mode))];
+    modes.forEach((mode) => {
+        const opt = document.createElement('option');
+        opt.value = mode;
+        opt.textContent = modeLabels[mode] || mode;
+        modeEl.appendChild(opt);
+    });
+
+    function render() {
+        const query = searchEl.value.trim().toLowerCase();
+        const modeFilter = modeEl.value;
+
+        listEl.innerHTML = '';
+
+        const filtered = lines.filter((line) => {
+            if (modeFilter && line.mode !== modeFilter) return false;
+            if (!query) return true;
+            if (line.shortName.toLowerCase().includes(query)) return true;
+            return line.patterns.some((p) => p.longName.toLowerCase().includes(query));
+        });
+
+        if (filtered.length === 0) {
+            const empty = document.createElement('div');
+            empty.className = 'trufi-index-empty';
+            empty.textContent = 'No se encontraron líneas.';
+            listEl.appendChild(empty);
+            return;
+        }
+
+        filtered.forEach((line) => {
+            const lineEl = document.createElement('div');
+            lineEl.className = 'trufi-line';
+
+            const header = document.createElement('div');
+            header.className = 'trufi-line-header';
+
+            const badge = document.createElement('span');
+            badge.className = 'trufi-line-badge';
+            badge.textContent = line.shortName;
+            header.appendChild(badge);
+
+            const title = document.createElement('span');
+            title.className = 'trufi-line-title';
+            title.textContent = (modeLabels[line.mode] || line.mode) + ' ' + line.shortName;
+            header.appendChild(title);
+
+            lineEl.appendChild(header);
+
+            line.patterns.forEach((pattern) => {
+                const row = document.createElement('div');
+                row.className = 'trufi-pattern';
+                const destination = pattern.longName.split(':').slice(1).join(':').trim() || pattern.longName;
+                row.textContent = destination;
+                row.addEventListener('click', () => selectPattern(pattern, row));
+                lineEl.appendChild(row);
+            });
+
+            listEl.appendChild(lineEl);
+        });
+    }
+
+    function bearingDeg(a, b) {
+        const dLon = (b[1] - a[1]) * Math.PI / 180;
+        const lat1 = a[0] * Math.PI / 180;
+        const lat2 = b[0] * Math.PI / 180;
+        const y = Math.sin(dLon) * Math.cos(lat2);
+        const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+        return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    }
+
+    function routeDirection(longName) {
+        const base = longName.split(':').slice(1).join(':').trim() || longName;
+        const parts = base.split('→').map(function (s) { return s.trim(); });
+        return { from: parts[0] || '', to: parts[1] || '' };
+    }
+
+    function arrowMarker(at, angle) {
+        return L.marker(at, {
+            icon: L.divIcon({
+                className: 'trufi-arrow-wrap',
+                html: '<div class="trufi-arrow" style="transform:rotate(' + angle.toFixed(1) + 'deg);color:' + lineColor + ';">➤</div>',
+                iconSize: [0, 0],
+            }),
+            interactive: false,
+            keyboard: false,
+        });
+    }
+
+    function drawGeometry(coords) {
+        overlays.clearLayers();
+        if (!coords || coords.length < 2) return;
+
+        const polyline = L.polyline(coords, { color: lineColor, weight: 5, opacity: 0.9 }).addTo(overlays);
+
+        const count = Math.max(3, Math.min(8, Math.floor(coords.length / 60)));
+        const spacing = coords.length / (count + 1);
+        let acc = 0;
+        for (let i = 0; i < coords.length - 1; i++) {
+            const a = coords[i];
+            const b = coords[i + 1];
+            const seg = Math.hypot(b[0] - a[0], b[1] - a[1]);
+            if (seg <= 0) continue;
+            const angle = bearingDeg(a, b);
+            let p = acc;
+            while (p + spacing <= acc + seg) {
+                const f = (p - acc) / seg;
+                arrowMarker([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f], angle).addTo(overlays);
+                p += spacing;
+            }
+            acc += seg;
+        }
+
+        map.fitBounds(polyline.getBounds());
+    }
+
+    function drawEndpoints(coords, labels) {
+        if (!coords || coords.length === 0) return;
+        const start = L.circleMarker(coords[0], { radius: 6, color: '#fff', weight: 2, fillColor: '#2e7d32', fillOpacity: 1 }).addTo(overlays);
+        const end = L.circleMarker(coords[coords.length - 1], { radius: 6, color: '#fff', weight: 2, fillColor: '#c62828', fillOpacity: 1 }).addTo(overlays);
+        if (labels.from) start.bindTooltip(labels.from, { sticky: true, direction: 'right', offset: [8, 0] });
+        if (labels.to) end.bindTooltip(labels.to, { sticky: true, direction: 'left', offset: [-8, 0] });
+    }
+
+    function paintPattern(pattern, data) {
+        const coords = data.geometry.map(function (pt) { return [pt.lat, pt.lon]; });
+        hintEl.textContent = pattern.longName.split('→').length > 1 ? pattern.longName.split('→')[1].trim() : pattern.longName;
+        drawGeometry(coords);
+        drawEndpoints(coords, routeDirection(data.route ? data.route.longName : pattern.longName));
+        setTimeout(function () { hintEl.style.display = 'none'; }, 1200);
+    }
+
+    function selectPattern(pattern, row) {
+        if (activeRow) activeRow.classList.remove('is-active');
+        row.classList.add('is-active');
+        activeRow = row;
+        hintEl.textContent = 'Cargando ruta...';
+        hintEl.style.display = 'block';
+
+        if (geometryCache[pattern.code]) {
+            paintPattern(pattern, geometryCache[pattern.code]);
+            return;
+        }
+
+        fetch(restUrlBase + encodeURIComponent(pattern.code))
+            .then(function (res) {
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return res.json();
+            })
+            .then(function (data) {
+                if (!data.geometry) throw new Error('Sin geometría');
+                geometryCache[pattern.code] = data;
+                paintPattern(pattern, data);
+            })
+            .catch(function () {
+                hintEl.textContent = 'No se pudo cargar la ruta.';
+            });
+    }
+
+    searchEl.addEventListener('input', render);
+    modeEl.addEventListener('change', render);
+    clearEl.addEventListener('click', () => {
+        searchEl.value = '';
+        modeEl.value = '';
+        render();
+    });
+
+    render();
+})();
+</script>

@@ -32,10 +32,20 @@
         max-width: 200px;
         height: auto;
     }
+
+    .trufi-arrow-wrap {
+        pointer-events: none;
+    }
+
+    .trufi-arrow {
+        font-size: 16px;
+        line-height: 1;
+        text-shadow: 0 0 2px #fff, 0 0 2px #fff;
+    }
 </style>
 
-<!--<h3 id="routeName">{{pageTitle}}</h3>-->
-<h4>{{callToAction}}</h4>
+<h2 id="routeName">{{routeName}}</h2>
+<p class="trufi-route-description">{{routeDescription}}</p>
 <div class="app-store-buttons">
     <a href="{{googlePlayUrl}}" id="google-play-btn">
         <img src="{{googlePlayImage}}" alt="Descargar en Google Play">
@@ -49,20 +59,71 @@
 </div>
 <script>
     const data = {{routeData}};
+    const lineColor = '{{lineColor}}';
     const map = L.map('map').setView([0, 0], 13);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; <a href="https://openstreetmap.org/copyright">OpenStreetMap</a> and <a href="https://trufi-association.org">Trufi Association</a> contributors',
     }).addTo(map);
 
-
     const coordinates = data.data.pattern.geometry.map((point) => [point.lat, point.lon]);
     const polyline = L.polyline(coordinates, {
-        color: '{{lineColor}}',
+        color: lineColor,
         weight: '{{lineWeight}}'
     }).addTo(map);
 
-    map.fitBounds(polyline.getBounds());
-    //document.querySelector('#routeName').innerHTML = `${data.data.pattern.route.longName} - {{pageTitle}}`;
+    function bearingDeg(a, b) {
+        const dLon = (b[1] - a[1]) * Math.PI / 180;
+        const lat1 = a[0] * Math.PI / 180;
+        const lat2 = b[0] * Math.PI / 180;
+        const y = Math.sin(dLon) * Math.cos(lat2);
+        const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+        return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+    }
 
+    function arrowMarker(at, angle) {
+        return L.marker(at, {
+            icon: L.divIcon({
+                className: 'trufi-arrow-wrap',
+                html: '<div class="trufi-arrow" style="transform:rotate(' + angle.toFixed(1) + 'deg);color:' + lineColor + ';">➤</div>',
+                iconSize: [0, 0],
+            }),
+            interactive: false,
+            keyboard: false,
+        });
+    }
+
+    function decorateDirection(coords, longName) {
+        const base = longName.split(':').slice(1).join(':').trim() || longName;
+        const parts = base.split('→').map(function (s) { return s.trim(); });
+
+        const count = Math.max(3, Math.min(8, Math.floor(coords.length / 60)));
+        const spacing = coords.length / (count + 1);
+        let acc = 0;
+        for (let i = 0; i < coords.length - 1; i++) {
+            const a = coords[i];
+            const b = coords[i + 1];
+            const seg = Math.hypot(b[0] - a[0], b[1] - a[1]);
+            if (seg <= 0) continue;
+            const angle = bearingDeg(a, b);
+            let p = acc;
+            while (p + spacing <= acc + seg) {
+                const f = (p - acc) / seg;
+                arrowMarker([a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f], angle).addTo(map);
+                p += spacing;
+            }
+            acc += seg;
+        }
+
+        if (coords.length > 0) {
+            const start = L.circleMarker(coords[0], { radius: 6, color: '#fff', weight: 2, fillColor: '#2e7d32', fillOpacity: 1 }).addTo(map);
+            const end = L.circleMarker(coords[coords.length - 1], { radius: 6, color: '#fff', weight: 2, fillColor: '#c62828', fillOpacity: 1 }).addTo(map);
+            if (parts[0]) start.bindTooltip(parts[0], { sticky: true, direction: 'right', offset: [8, 0] });
+            if (parts[1]) end.bindTooltip(parts[1], { sticky: true, direction: 'left', offset: [-8, 0] });
+        }
+    }
+
+    decorateDirection(coordinates, data.data.pattern.route.longName);
+
+    map.fitBounds(polyline.getBounds());
 </script>
