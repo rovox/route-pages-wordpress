@@ -2,7 +2,8 @@
  * Design tokens + building blocks shared by the routes index page
  * (trufi-index.css) and the route detail page (trufi-route.css): hero
  * banner, stat blocks, list headers, line/route badges, icons, Leaflet
- * control theming, and the geolocation button/marker.
+ * control theming, the geolocation button/marker, the "Compartir" button +
+ * its confirmation toast, and the app store buttons.
  */
 
 :root {
@@ -26,6 +27,13 @@
  * effectively scoped even though .page-header itself isn't ours. */
 .page-header {
     display: none;
+}
+
+/* Template tokens toggle optional blocks (e.g. the Sindicatos stat) with the
+ * `hidden` attribute; don't let theme display rules override it. */
+.trufi-index [hidden],
+.trufi-route [hidden] {
+    display: none !important;
 }
 
 .trufi-icon {
@@ -107,7 +115,7 @@
     margin-top: 4px;
 }
 
-/* List header (sidebar title row, optionally with a trailing icon button) */
+/* List header (sidebar title row, optionally with a trailing button) */
 
 .trufi-list-title {
     flex: 0 0 auto;
@@ -174,28 +182,71 @@
     background: var(--trufi-pink);
 }
 
-.trufi-icon-btn {
+.trufi-share-btn {
+    flex-shrink: 0;
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
+    margin: 0;
+    padding: 4px 10px;
+    border: 1px solid var(--trufi-pink);
+    border-radius: 999px;
     background: var(--trufi-white);
     color: var(--trufi-pink);
-    border: 1px solid var(--trufi-gray-500-a);
-    border-radius: 4px;
-    box-shadow: 0 2px 4px rgba(171, 190, 209, 0.6);
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+    text-transform: none;
+    letter-spacing: normal;
+    white-space: nowrap;
     cursor: pointer;
-    flex-shrink: 0;
 }
 
-.trufi-icon-btn:hover {
-    background: var(--trufi-gray-100);
-}
-
-.trufi-icon-btn.is-copied {
-    background: #2e7d32;
+.trufi-share-btn:hover,
+.trufi-share-btn:focus-visible {
+    background: var(--trufi-pink);
     color: var(--trufi-white);
+}
+
+/* Share confirmation toast (Trufi.share.toast) ---------------------------- */
+
+.trufi-toast {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    z-index: 100000;
+    width: max-content;
+    max-width: calc(100vw - 32px);
+    transform: translate(-50%, 16px);
+    padding: 10px 16px;
+    border-radius: 10px;
+    background: var(--trufi-dark);
+    color: var(--trufi-white);
+    font-size: 14px;
+    line-height: 1.4;
+    text-align: center;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s;
+}
+
+.trufi-toast.is-visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, 0);
+}
+
+.trufi-toast input {
+    display: block;
+    width: 100%;
+    margin: 8px 0 0;
+    padding: 6px 8px;
+    border: 1px solid var(--trufi-gray-500);
+    border-radius: 6px;
+    background: var(--trufi-white);
+    color: var(--trufi-gray-900);
+    font-size: 13px;
 }
 
 /* Geolocation button + toast/hint pill + pulse marker (both pages) ------- */
@@ -384,8 +435,30 @@
     align-items: center;
 }
 
+.trufi-store-buttons a {
+    text-decoration: none;
+}
+
 .trufi-store-buttons img {
     max-width: 160px;
     height: auto;
     display: block;
+}
+
+/* Text fallback when no badge image is uploaded in the settings. */
+.trufi-store-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 9px 16px;
+    border-radius: 8px;
+    background: var(--trufi-black);
+    color: var(--trufi-white);
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.trufi-store-buttons a:hover .trufi-store-badge,
+.trufi-store-buttons a:focus-visible .trufi-store-badge {
+    background: var(--trufi-pink);
 }

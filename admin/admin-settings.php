@@ -25,6 +25,7 @@ function trufi_routes_settings_page() {
     $map_zoom = get_option(TRUFI_MAP_ZOOM_OPTION);
     if (!$map_zoom) $map_zoom = '13';
     $show_location = get_option(TRUFI_SHOW_LOCATION_OPTION, '1');
+    $sindicatos_url = get_option(TRUFI_SINDICATOS_URL_OPTION, TRUFI_SINDICATOS_DEFAULT_URL);
 
 
     if (isset($_POST['trufi_api_options_nonce'])) {
@@ -36,8 +37,8 @@ function trufi_routes_settings_page() {
         $site_description  = $_POST['trufi_site_description'];
         $line_color        = $_POST['trufi_line_color'];
         $line_weight       = $_POST['trufi_line_weight'];
-        $google_play_url   = $_POST['trufi_google_play_url'];
-        $apple_store_url   = $_POST['trufi_apple_store_url'];
+        $google_play_url   = esc_url_raw($_POST['trufi_google_play_url']);
+        $apple_store_url   = esc_url_raw($_POST['trufi_apple_store_url']);
         $google_play_image = $_POST['trufi_google_play_image'];
         $apple_store_image = $_POST['trufi_apple_store_image'];
         $map_page_id       = $_POST['trufi_map_page_id'];
@@ -45,6 +46,7 @@ function trufi_routes_settings_page() {
         $map_center_lat    = $_POST['trufi_map_center_lat'];
         $map_center_lng    = $_POST['trufi_map_center_lng'];
         $map_zoom          = $_POST['trufi_map_zoom'];
+        $sindicatos_url    = esc_url_raw(trim($_POST['trufi_sindicatos_url'] ?? ''));
 
         update_option(TRUFI_API_URL_OPTION, $api_url);
         update_option(TRUFI_SITE_DESCRIPTION_OPTION, $site_description);
@@ -59,6 +61,7 @@ function trufi_routes_settings_page() {
         update_option(TRUFI_MAP_CENTER_LAT_OPTION, $map_center_lat);
         update_option(TRUFI_MAP_CENTER_LNG_OPTION, $map_center_lng);
         update_option(TRUFI_MAP_ZOOM_OPTION, $map_zoom);
+        update_option(TRUFI_SINDICATOS_URL_OPTION, $sindicatos_url);
 
         update_option(TRUFI_SHOW_LOCATION_OPTION, isset($_POST['trufi_show_location']) ? '1' : '0');
 

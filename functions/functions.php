@@ -54,36 +54,182 @@ function trufi_fetch_index_data(): array|null {
 }
 
 /**
- * Group a flat pattern list into lines (by route shortName), each carrying
- * its patterns (direction/variant) underneath.
+ * Operator ("sindicato") and origin data from the open OSM-derived dataset
+ * configured in TRUFI_SINDICATOS_URL_OPTION, transient-cached.
  *
- * Grouping is by shortName rather than by operator/"sindicato" because the
- * configured Trufi GraphQL endpoint reports agency "default" for every
- * single route (verified: 471/471 patterns) - there is no real per-operator
- * data to group by.
+ * The Trufi feed has neither: every route's agency is "default", and
+ * longName is just the line name (e.g. "Trufi 303") with no origin. The
+ * dataset's routes carry `name` (same string as the feed's longName), `ref`
+ * (same as shortName), `sindicato`, and `from`/`to` - so it's reduced here
+ * to three small lookup maps before caching (the raw file is ~2 MB, mostly
+ * coordinates we don't need):
+ *  - byName:  route name => ['name' => sindicato, 'slug' => slug]
+ *  - byRef:   ref => same, only for refs that belong to a single sindicato
+ *  - origins: "{name}|{normalized to}" => from, only when unambiguous
+ *
+ * Returns empty maps when the option is empty (feature off) or the fetch
+ * fails; a failure is cached for an hour so a dead URL doesn't cost a slow
+ * request on every page view.
+ *
+ * @return array{byName: array, byRef: array, origins: array}
+ */
+function trufi_fetch_sindicatos_data(): array {
+    $empty = ['byName' => [], 'byRef' => [], 'origins' => []];
+    $url   = get_option(TRUFI_SINDICATOS_URL_OPTION, TRUFI_SINDICATOS_DEFAULT_URL);
+    if (!$url) {
+        return $empty;
+    }
+
+    $cacheKey = 'trufi_route_sindicatos';
+    $data     = get_transient($cacheKey);
+    if (false !== $data) {
+        return $data;
+    }
+
+    $response = wp_remote_get($url, ['timeout' => 15]);
+    $json     = is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200
+        ? null
+        : json_decode(wp_remote_retrieve_body($response), true);
+
+    if (!is_array($json) || empty($json['routes']) || !is_array($json['routes'])) {
+        set_transient($cacheKey, $empty, HOUR_IN_SECONDS);
+        return $empty;
+    }
+
+    $nameCounts = [];
+    $refSets    = [];
+    $slugs      = [];
+    $origins    = [];
+    foreach ($json['routes'] as $route) {
+        $sindicato = trim($route['sindicato'] ?? '');
+        $name      = trim($route['name'] ?? '');
+        if ($sindicato === '' || strtolower($sindicato) === 'default' || $name === '') {
+            continue;
+        }
+        $slugs[$sindicato] = $route['sindicatoSlug'] ?? sanitize_title($sindicato);
+        $nameCounts[$name][$sindicato] = ($nameCounts[$name][$sindicato] ?? 0) + 1;
+        if (($route['ref'] ?? '') !== '') {
+            $refSets[$route['ref']][$sindicato] = true;
+        }
+        if (($route['to'] ?? '') !== '' && ($route['from'] ?? '') !== '') {
+            $origins[$name . '|' . trufi_normalize_place($route['to'])][$route['from']] = true;
+        }
+    }
+
+    $data = $empty;
+    foreach ($nameCounts as $name => $counts) {
+        arsort($counts);
+        $sindicato             = array_key_first($counts);
+        $data['byName'][$name] = ['name' => $sindicato, 'slug' => $slugs[$sindicato]];
+    }
+    foreach ($refSets as $ref => $set) {
+        if (count($set) === 1) {
+            $sindicato                    = array_key_first($set);
+            $data['byRef'][(string) $ref] = ['name' => $sindicato, 'slug' => $slugs[$sindicato]];
+        }
+    }
+    foreach ($origins as $key => $set) {
+        if (count($set) === 1) {
+            $data['origins'][$key] = array_key_first($set);
+        }
+    }
+
+    set_transient($cacheKey, $data, get_option(TRUFI_CACHE_TTL_OPTION) * 60 * 60);
+
+    return $data;
+}
+
+/**
+ * Lowercased, accent-stripped, trimmed place name - used to compare a
+ * pattern's headsign with the sindicatos dataset's `to` field.
+ */
+function trufi_normalize_place(string $place): string {
+    return strtolower(trim(remove_accents($place)));
+}
+
+/**
+ * The operator ("sindicato") running a line, looked up by route name first
+ * and by shortName as a fallback.
+ *
+ * @param string $longName
+ * @param string $shortName
+ * @param array  $sindicatos trufi_fetch_sindicatos_data()
+ *
+ * @return array{name: string, slug: string}|null
+ */
+function trufi_line_sindicato(string $longName, string $shortName, array $sindicatos): ?array {
+    return $sindicatos['byName'][$longName] ?? $sindicatos['byRef'][$shortName] ?? null;
+}
+
+/**
+ * Display labels for one pattern: the feed's longName is just the line name
+ * ("Trufi 303"), the destination is the pattern's headsign, and the origin
+ * comes from the sindicatos dataset when it can be matched unambiguously.
+ *
+ * @param string $longName
+ * @param string $headsign
+ * @param array  $sindicatos trufi_fetch_sindicatos_data()
+ *
+ * @return array{headline: string, from: string, to: string, subtitle: string}
+ */
+function trufi_pattern_labels(string $longName, string $headsign, array $sindicatos): array {
+    $to   = trim($headsign);
+    $from = $to !== '' ? ($sindicatos['origins'][$longName . '|' . trufi_normalize_place($to)] ?? '') : '';
+
+    if ($from !== '') {
+        $subtitle = $from . ' → ' . $to;
+    } elseif ($to !== '') {
+        $subtitle = 'Hacia ' . $to;
+    } else {
+        $subtitle = '';
+    }
+
+    return [
+        'headline' => $longName,
+        'from'     => $from,
+        'to'       => $to,
+        'subtitle' => $subtitle,
+    ];
+}
+
+/**
+ * Group a flat pattern list into lines (by route shortName), each carrying
+ * its patterns (direction/variant) underneath, plus the line's operator
+ * ("sindicato", or null when the sindicatos dataset has no match) and each
+ * pattern's origin/destination labels.
+ *
+ * Grouping by sindicato happens client-side (trufi-index.js) on top of this,
+ * since the feed itself has no operator data (agency is "default" for every
+ * route) - it comes from trufi_fetch_sindicatos_data().
  *
  * @param array $patterns
  *
  * @return array
  */
 function trufi_group_patterns_by_line(array $patterns): array {
-    $lines = [];
+    $sindicatos = trufi_fetch_sindicatos_data();
+    $lines      = [];
     foreach ($patterns as $pattern) {
         $shortName = $pattern['route']['shortName'] ?? '';
         if ($shortName === '') {
             continue;
         }
+        $longName = $pattern['route']['longName'] ?? '';
         if (!isset($lines[$shortName])) {
             $lines[$shortName] = [
                 'shortName' => $shortName,
                 'mode'      => $pattern['route']['mode'] ?? 'BUS',
+                'sindicato' => trufi_line_sindicato($longName, $shortName, $sindicatos),
                 'patterns'  => [],
             ];
         }
+        $labels = trufi_pattern_labels($longName, $pattern['headsign'] ?? '', $sindicatos);
         $lines[$shortName]['patterns'][] = [
             'code'     => $pattern['code'],
-            'longName' => $pattern['route']['longName'] ?? '',
-            'url'      => trufi_pattern_url($pattern['route']['longName'] ?? '', $pattern['code']),
+            'longName' => $longName,
+            'from'     => $labels['from'],
+            'to'       => $labels['to'],
+            'url'      => trufi_pattern_url($longName, $pattern['code']),
         ];
     }
     $lines = array_values($lines);
@@ -109,25 +255,6 @@ function trufi_pattern_url(string $longName, string $code): string {
     $slug      = sanitize_title(Utility::replaceArrowWithWord($longName));
 
     return home_url("/$base_path/$slug/$code");
-}
-
-/**
- * Split a "{headline}: {from} → {to}" longName (the Trufi API's convention,
- * e.g. "Trufi 119: Villa Taquiña → Loma Pampa") into its headline and
- * from/to subtitle. Falls back to using the whole string as the headline
- * when there's no colon to split on.
- *
- * @param string $longName
- *
- * @return array{headline: string, subtitle: string}
- */
-function trufi_split_route_long_name(string $longName): array {
-    $parts = explode(':', $longName, 2);
-
-    return [
-        'headline' => trim($parts[0] ?? $longName),
-        'subtitle' => trim($parts[1] ?? ''),
-    ];
 }
 
 /**

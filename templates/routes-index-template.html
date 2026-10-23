@@ -6,6 +6,10 @@
             <p>Consulta el trazado completo de micros, trufis y taxi trufis en la Llajta. Elige una línea para ver por dónde pasa y llega a tu destino sin perderte.</p>
         </div>
         <div class="trufi-hero-stats">
+            <div class="trufi-hero-stat" {{sindicatosStatHidden}}>
+                <strong>{{statsSindicatos}}</strong>
+                <span>Sindicatos</span>
+            </div>
             <div class="trufi-hero-stat">
                 <strong>{{statsLines}}</strong>
                 <span>Líneas</span>
@@ -28,9 +32,12 @@
             <div class="trufi-searchbar">
                 <label class="trufi-search-field">
                     <span class="trufi-icon" data-icon="search" aria-hidden="true"></span>
-                    <input type="text" id="trufi-index-search" placeholder="Buscar línea, origen, destino...">
+                    <input type="text" id="trufi-index-search" aria-label="Buscar rutas" placeholder="Buscar línea, origen, destino...">
                 </label>
-                <select id="trufi-index-mode-filter">
+                <select id="trufi-index-sindicato-filter" aria-label="Sindicato" {{sindicatoFilterHidden}}>
+                    <option value="">Todos los sindicatos</option>
+                </select>
+                <select id="trufi-index-mode-filter" aria-label="Tipo de transporte">
                     <option value="">Tipo de transporte</option>
                 </select>
                 <div class="trufi-searchbar-actions">
@@ -38,7 +45,7 @@
                     <button type="button" class="trufi-geo-btn" id="trufi-geo-btn" title="Marcar dónde estoy" data-show-location="{{showLocation}}"><span class="trufi-icon" data-icon="locate" aria-hidden="true"></span> Mi ubicación</button>
                 </div>
             </div>
-            <div class="trufi-map-hint" id="trufi-index-map-hint">Selecciona una línea para verla en el mapa</div>
+            <div class="trufi-map-hint" id="trufi-index-map-hint">Elige una ruta de la lista para ver su detalle</div>
             <div id="trufi-index-map" class="trufi-map"></div>
         </div>
     </div>

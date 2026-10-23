@@ -2,7 +2,7 @@
  * Draws a route (pattern) on a Leaflet map: the polyline, small arrow
  * markers showing direction of travel along it, start/end markers, and one
  * marker per stop (labelled with its street name via a tooltip) - shared by
- * the index page's on-demand preview and the route detail page's main map.
+ * the route detail page's main map.
  */
 window.Trufi = window.Trufi || {};
 
@@ -14,13 +14,6 @@ Trufi.routeDraw = {
         const y = Math.sin(dLon) * Math.cos(lat2);
         const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
         return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
-    },
-
-    /** Splits a "{headline}: {from} → {to}" longName into its parts. */
-    splitLongName: function (longName) {
-        const base = (longName || '').split(':').slice(1).join(':').trim() || (longName || '');
-        const parts = base.split('→').map(function (s) { return s.trim(); });
-        return { headline: (longName || '').split(':')[0].trim(), from: parts[0] || '', to: parts[1] || '' };
     },
 
     /** Solid red pin marking the route's destination (end of the geometry). */
@@ -111,9 +104,11 @@ Trufi.routeDraw = {
      *
      * @param {L.Map} map
      * @param {L.LayerGroup} layerGroup
-     * @param {{geometry: Array<{lat:number, lon:number}>, stops: Array, route: {longName: string}}} pattern
+     * @param {{geometry: Array<{lat:number, lon:number}>, stops: Array, headsign?: string}} pattern
      * @param {string} lineColor
-     * @param {{weight?: number, fitBounds?: boolean, onStopClick?: Function}} [options]
+     * @param {{weight?: number, fitBounds?: boolean, onStopClick?: Function, labels?: {from?: string, to?: string}}} [options]
+     *        `labels` are the origin/destination tooltips (server-computed, see
+     *        trufi_pattern_labels()); defaults to just the pattern's headsign as destination.
      * @returns {{coords: Array<[number, number]>, stopMarkers: Object<number, L.CircleMarker>}}
      */
     drawPattern: function (map, layerGroup, pattern, lineColor, options) {
@@ -127,7 +122,7 @@ Trufi.routeDraw = {
 
         Trufi.routeDraw.drawDirectionArrows(layerGroup, coords, lineColor);
 
-        const labels = Trufi.routeDraw.splitLongName(pattern.route ? pattern.route.longName : '');
+        const labels = options.labels || { to: pattern.headsign || '' };
         Trufi.routeDraw.drawEndpoints(layerGroup, coords, labels);
         const stopMarkers = Trufi.routeDraw.drawStops(layerGroup, pattern.stops || [], options.onStopClick);
 

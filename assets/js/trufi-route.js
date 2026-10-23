@@ -38,6 +38,7 @@
     const drawn = Trufi.routeDraw.drawPattern(map, overlays, pattern, config.lineColor, {
         weight: config.lineWeight || 5,
         fitBounds: true,
+        labels: config.labels,
         onStopClick: function (index) { setActiveStop(index); },
     });
 
@@ -70,7 +71,7 @@
 
     if (shareBtn) {
         shareBtn.addEventListener('click', function () {
-            Trufi.share.copyOrShare(window.location.href, document.title, shareBtn);
+            Trufi.share.copyOrShare(window.location.href, document.title);
         });
     }
 })();

@@ -124,6 +124,15 @@
             </tr>
             <tr>
                 <th scope="row">
+                    <label for="trufi_sindicatos_url"><?php _e('Sindicatos data URL', 'TrufiApi-maps'); ?></label>
+                </th>
+                <td>
+                    <input type="text" name="trufi_sindicatos_url" id="trufi_sindicatos_url" value="<?php echo esc_attr($sindicatos_url); ?>" class="large-text">
+                    <p class="description"><?php _e('JSON dataset of transport operators ("sindicatos") built from OpenStreetMap. Used for the Sindicatos count, the sindicato filter/grouping on the routes index and each route\'s origin. Leave empty to disable.', 'TrufiApi-maps'); ?></p>
+                </td>
+            </tr>
+            <tr>
+                <th scope="row">
                     <label for="trufi_show_location"><?php _e('Location button', 'TrufiApi-maps'); ?></label>
                 </th>
                 <td>

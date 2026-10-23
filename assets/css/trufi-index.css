@@ -19,6 +19,16 @@
  * Mobile (<=780px): a normal scrolling page - hero, then a search/filter
  * card, then a shorter map, then the routes list below it - per the
  * mobile design (see AGENTS.md).
+ *
+ * Searchbar: one line when the map column is wide enough, wrapping to a
+ * second row (selects + buttons) when it isn't. It used to be `nowrap`,
+ * which on mid-width screens squeezed the search input down to ~0px wide -
+ * typing still filtered, but the text and caret were invisible. The input
+ * keeps a real min-width and a full theme-style reset for that reason.
+ *
+ * The list is grouped by operator ("sindicato"): .trufi-group (name, route
+ * count, share) > .trufi-line (badge + line title) > .trufi-pattern (a link
+ * to the route's detail page + its share button).
  */
 
 .trufi-index {
@@ -77,14 +87,23 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 8px 10px 8px 16px;
+    padding-right: 10px;
     font-size: 13px;
-    color: var(--trufi-gray-600);
-    cursor: pointer;
     border-top: 1px solid var(--trufi-gray-100);
 }
 
-.trufi-pattern .trufi-icon {
+.trufi-pattern-link {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 0 9px 16px;
+    color: var(--trufi-gray-600);
+    text-decoration: none;
+}
+
+.trufi-pattern-link .trufi-icon {
     color: var(--trufi-gray-500);
     flex-shrink: 0;
 }
@@ -94,20 +113,49 @@
     min-width: 0;
 }
 
-.trufi-pattern-share {
-    width: 24px;
-    height: 24px;
-    flex-shrink: 0;
-}
-
 .trufi-pattern:hover,
-.trufi-pattern.is-active {
+.trufi-pattern:focus-within {
     background: var(--trufi-gray-100);
+}
+
+.trufi-pattern-link:hover,
+.trufi-pattern-link:focus-visible,
+.trufi-pattern-link:hover .trufi-icon,
+.trufi-pattern-link:focus-visible .trufi-icon {
     color: var(--trufi-pink);
 }
 
-.trufi-pattern.is-active .trufi-icon:first-child {
-    color: var(--trufi-pink);
+/* Sindicato group: header (name, "N rutas trazadas", share) + its lines */
+
+.trufi-group {
+    margin-bottom: 14px;
+}
+
+.trufi-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 6px 4px 8px;
+}
+
+.trufi-group-info {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.trufi-group-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--trufi-gray-900);
+    line-height: 1.25;
+}
+
+.trufi-group-count {
+    font-size: 12px;
+    color: var(--trufi-gray-600);
 }
 
 .trufi-index-map-wrap {
@@ -136,7 +184,7 @@
     z-index: 500;
     display: flex;
     align-items: center;
-    flex-wrap: nowrap;
+    flex-wrap: wrap;
     gap: 6px;
     background: rgba(255, 255, 255, 0.95);
     border: 1px solid rgba(33, 37, 41, 0.18);
@@ -146,8 +194,8 @@
 }
 
 .trufi-search-field {
-    flex: 1 1 140px;
-    min-width: 0;
+    flex: 1 1 220px;
+    min-width: 180px;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -162,23 +210,51 @@
     flex-shrink: 0;
 }
 
-.trufi-search-field input {
-    border: none;
-    outline: none;
+.trufi-search-field:focus-within {
+    border-color: var(--trufi-pink);
+}
+
+/* Theme-proof reset: themes style bare text inputs (padding, fixed height,
+ * borders, colors) in ways that can leave no room for the text itself -
+ * selector specificity is deliberately above a theme's `input[type="text"]`. */
+.trufi-searchbar .trufi-search-field input[type="text"] {
     flex: 1 1 auto;
+    width: 100%;
     min-width: 0;
+    margin: 0;
+    padding: 0;
+    height: auto;
+    min-height: 0;
+    border: none;
+    border-radius: 0;
+    outline: none;
+    box-shadow: none;
+    background: transparent;
+    color: var(--trufi-gray-900);
+    caret-color: var(--trufi-pink);
     font-size: 14px;
+    line-height: 1.4;
     font-family: inherit;
 }
 
+.trufi-searchbar .trufi-search-field input[type="text"]::placeholder {
+    color: var(--trufi-gray-600);
+    opacity: 1;
+}
+
 .trufi-searchbar select {
-    flex: 0 1 auto;
-    max-width: 42%;
+    flex: 1 1 150px;
+    max-width: 220px;
+    min-width: 0;
+    height: auto;
+    margin: 0;
     padding: 7px 8px;
     border: 1px solid var(--trufi-gray-500);
     border-radius: 6px;
     font-size: 14px;
-    background: var(--trufi-white);
+    line-height: 1.4;
+    color: var(--trufi-gray-900);
+    background-color: var(--trufi-white);
     font-family: inherit;
 }
 
@@ -217,12 +293,26 @@
     /* Mobile order: hero (above) -> search/map card -> routes list, per the
      * mobile design. Flex `order` keeps the DOM (and its no-JS/reader
      * order: list, then map) unchanged while flipping the visual order. */
+    /* The searchbar card sits *above* the map here, in normal flow - so the
+     * map gets its own height instead of absolutely filling the wrapper.
+     * Keep the card positioned (relative + z-index): a static card would be
+     * painted underneath the positioned map and vanish (which is exactly
+     * how search/filter used to disappear on mobile). */
     .trufi-index-map-wrap {
         order: 1;
         position: relative;
+        display: flex;
+        flex-direction: column;
+        flex: 0 0 auto;
+        height: auto;
+        border-bottom: 1px solid var(--trufi-gray-500-a);
+    }
+
+    #trufi-index-map {
+        position: relative;
+        inset: auto;
         height: 320px;
         min-height: 260px;
-        border-bottom: 1px solid var(--trufi-gray-500-a);
     }
 
     .trufi-index-sidebar {
@@ -230,18 +320,22 @@
     }
 
     .trufi-searchbar {
-        position: static;
-        flex-wrap: wrap;
+        position: relative;
+        top: auto;
+        left: auto;
+        right: auto;
+        z-index: 1;
         margin: 12px;
         box-shadow: 0 2px 4px rgba(171, 190, 209, 0.6);
     }
 
     .trufi-search-field {
         flex-basis: 100%;
+        min-width: 0;
     }
 
     .trufi-searchbar select {
-        flex: 1 1 auto;
+        flex: 1 1 140px;
         max-width: none;
     }
 
@@ -251,14 +345,19 @@
         justify-content: space-between;
     }
 
+    /* Size the list by its content. With the desktop `flex: 1 1 0;
+     * min-height: 0` in this auto-height column it collapsed to 0px and its
+     * rows overflowed underneath the theme's footer. */
     .trufi-index-sidebar {
         border-right: none;
         border-top: 1px solid var(--trufi-gray-500-a);
         min-width: 0;
-        flex: 1 1 auto;
+        flex: 0 0 auto;
     }
 
     .trufi-index-list {
-        overflow-y: visible;
+        flex: 0 0 auto;
+        min-height: auto;
+        overflow: visible;
     }
 }

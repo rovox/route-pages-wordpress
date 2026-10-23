@@ -49,6 +49,7 @@ function trufi_maps_enqueue_frontend_assets() {
     if ($is_route_detail) {
         $routeData = trufi_fetch_route_data(rawurldecode($map_id));
         $pattern   = $routeData['data']['pattern'] ?? null;
+        $labels    = trufi_pattern_labels($pattern['route']['longName'] ?? '', $pattern['headsign'] ?? '', trufi_fetch_sindicatos_data());
 
         wp_enqueue_style('trufi-route', $plugin_url . 'assets/css/trufi-route.css', ['trufi-shared'], $ver);
         wp_enqueue_script(
@@ -61,6 +62,7 @@ function trufi_maps_enqueue_frontend_assets() {
 
         wp_localize_script('trufi-route', 'trufiRouteConfig', trufi_defang_script_close([
             'pattern'      => $pattern,
+            'labels'       => ['from' => $labels['from'], 'to' => $labels['to']],
             'lineColor'    => $line_color,
             'lineWeight'   => (int) get_option(TRUFI_LINE_WEIGHT_OPTION),
             'showLocation' => $show_location,
@@ -74,20 +76,18 @@ function trufi_maps_enqueue_frontend_assets() {
     $lines     = trufi_group_patterns_by_line($patterns);
 
     wp_enqueue_style('trufi-index', $plugin_url . 'assets/css/trufi-index.css', ['trufi-shared'], $ver);
-    wp_enqueue_script('trufi-api', $plugin_url . 'assets/js/trufi-api.js', [], $ver, true);
     wp_enqueue_script('trufi-search', $plugin_url . 'assets/js/trufi-search.js', [], $ver, true);
     wp_enqueue_script(
         'trufi-index',
         $plugin_url . 'assets/js/trufi-index.js',
-        ['trufi-icons', 'trufi-geo', 'trufi-share', 'trufi-route-draw', 'trufi-api', 'trufi-search'],
+        ['trufi-icons', 'trufi-geo', 'trufi-share', 'trufi-search'],
         $ver,
         true
     );
 
     wp_localize_script('trufi-index', 'trufiIndexConfig', trufi_defang_script_close([
         'lines'        => $lines,
-        'restUrl'      => esc_url_raw(rest_url('trufi/v1/pattern/')),
-        'lineColor'    => $line_color,
+        'indexUrl'     => esc_url_raw(get_permalink($map_page_id)),
         'mapCenter'    => [
             'lat' => (float) (get_option(TRUFI_MAP_CENTER_LAT_OPTION) ?: -17.3895),
             'lng' => (float) (get_option(TRUFI_MAP_CENTER_LNG_OPTION) ?: -66.1568),

@@ -1,7 +1,8 @@
 /**
  * Single route detail page ("/{base}/{name}/{code}"): hero (back link,
- * route headline, distance/paradas stats) + a "Paradas" (stops) list next
- * to the map. Builds on trufi-shared.css (hero, list-title, geo button,
+ * route headline, origin -> destination, sindicato, distance/paradas stats),
+ * an optional app store toolbar (only when a store URL is configured), and a
+ * "Paradas" (stops) list next to the map. Builds on trufi-shared.css (hero, list-title, geo button,
  * stop dots, Leaflet theme).
  */
 
@@ -22,6 +23,18 @@
 
 .trufi-route-back:hover {
     color: var(--trufi-white);
+}
+
+.trufi-hero-copy > .trufi-route-subtitle {
+    color: var(--trufi-white);
+    font-size: 16px;
+}
+
+.trufi-hero-copy > .trufi-route-sindicato {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 6px;
 }
 
 .trufi-route-toolbar {
@@ -105,7 +118,10 @@
         min-width: 0;
     }
 
+    /* Content-sized, capped: `flex: 1 1 0` (desktop) would collapse to 0px
+     * in this auto-height column - see the same fix in trufi-index.css. */
     .trufi-stops-list {
+        flex: 0 1 auto;
         max-height: 60vh;
     }
 }

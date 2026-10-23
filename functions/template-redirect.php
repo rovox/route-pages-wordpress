@@ -33,7 +33,9 @@ function trufi_maps_render_route_page() {
 
     $long_name         = $pattern['route']['longName'] ?? '';
     $route_short_name  = $pattern['route']['shortName'] ?? '';
-    $split              = trufi_split_route_long_name($long_name);
+    $sindicatos        = trufi_fetch_sindicatos_data();
+    $labels            = trufi_pattern_labels($long_name, $pattern['headsign'] ?? '', $sindicatos);
+    $sindicato         = trufi_line_sindicato($long_name, $route_short_name, $sindicatos);
     $page_title        = $long_name . ' - ' . get_bloginfo('name');
     $page_description  = get_option(TRUFI_SITE_DESCRIPTION_OPTION);
     $meta_description  = $page_description . ' - ' . $long_name;
@@ -47,6 +49,10 @@ function trufi_maps_render_route_page() {
     $stops         = $pattern['stops'] ?? [];
     $distance_km   = trufi_route_distance_km($pattern['geometry'] ?? []);
     $stops_list_html = trufi_render_stops_list_html($stops);
+    $store_buttons_html = trufi_render_store_buttons_html([
+        ['url' => $google_play_url, 'image' => $google_play_image, 'label' => 'Disponible en Google Play', 'alt' => 'Descargar en Google Play'],
+        ['url' => $apple_store_url, 'image' => $apple_store_image, 'label' => 'Descargar en App Store', 'alt' => 'Descargar en la App Store'],
+    ]);
 
     add_action('wp_head', function () use ($page_title, $meta_description, $long_name, $map_page_id) {
         trufi_add_header_tags($page_title, $meta_description, $long_name, $map_page_id);
@@ -54,18 +60,17 @@ function trufi_maps_render_route_page() {
 
     $replacement_values = [
         "{{pageTitle}}"        => esc_html($page_title),
-        "{{routeHeadline}}"    => esc_html($split['headline']),
-        "{{routeSubtitle}}"    => esc_html($split['subtitle']),
+        "{{routeHeadline}}"    => esc_html($labels['headline']),
+        "{{routeSubtitle}}"    => esc_html($labels['subtitle']),
+        "{{routeSindicato}}"   => esc_html($sindicato['name'] ?? ''),
+        "{{routeSindicatoHidden}}" => $sindicato ? '' : 'hidden',
         "{{routeShortName}}"   => esc_html($route_short_name),
         "{{routeDescription}}" => esc_html($meta_description),
         "{{routeDistance}}"    => esc_html(trufi_format_distance_km($distance_km)),
         "{{routeStopCount}}"   => esc_html((string) count($stops)),
         "{{stopsListHtml}}"    => $stops_list_html,
         "{{indexUrl}}"         => esc_url(get_permalink($map_page_id)),
-        "{{googlePlayUrl}}"    => esc_url($google_play_url),
-        "{{appleStoreUrl}}"    => esc_url($apple_store_url),
-        "{{googlePlayImage}}"  => esc_url($google_play_image),
-        "{{appleStoreImage}}"  => esc_url($apple_store_image),
+        "{{storeButtonsHtml}}" => $store_buttons_html,
         "{{showLocation}}"     => $show_location === '1' ? '1' : '0',
     ];
 
@@ -161,13 +166,44 @@ function trufi_render_stops_list_html(array $stops): string {
 }
 
 /**
+ * Server-renders the app store download toolbar for the route detail page.
+ * A store is only shown once its URL is configured (Settings -> Trufi
+ * Routes); without an uploaded badge image it falls back to a plain text
+ * button instead of a broken <img>. Returns '' (no toolbar at all) when no
+ * store is configured.
+ *
+ * @param array $stores List of ['url'=>, 'image'=>, 'label'=>, 'alt'=>].
+ *
+ * @return string
+ */
+function trufi_render_store_buttons_html(array $stores): string {
+    $buttons = '';
+    foreach ($stores as $store) {
+        if (empty($store['url'])) {
+            continue;
+        }
+        $inner    = !empty($store['image'])
+            ? sprintf('<img src="%s" alt="%s">', esc_url($store['image']), esc_attr($store['alt']))
+            : sprintf('<span class="trufi-store-badge">%s</span>', esc_html($store['label']));
+        $buttons .= sprintf('<a href="%s" target="_blank" rel="noopener">%s</a>', esc_url($store['url']), $inner);
+    }
+
+    if ($buttons === '') {
+        return '';
+    }
+
+    return '<div class="trufi-route-toolbar"><div class="trufi-store-buttons">' . $buttons . '</div></div>';
+}
+
+/**
  * Renders the routes index/directory page: the base "Routes" page itself
  * (no route segments in the URL) gets the searchable sidebar + map view,
  * built from a lightweight list of all patterns from the Trufi API.
  *
- * Lines are grouped by route shortName since the configured Trufi GraphQL
- * endpoint has no per-operator "agency" data (every route reports agency
- * "default") - there is no reliable "sindicato" grouping to build from.
+ * Lines are grouped by route shortName; each line's operator ("sindicato")
+ * comes from the external sindicatos dataset (trufi_fetch_sindicatos_data()),
+ * since the Trufi feed reports agency "default" for every route. The
+ * Sindicatos stat counts the distinct operators behind the listed lines.
  *
  * @return void
  */
@@ -183,8 +219,9 @@ function trufi_maps_render_routes_index() {
     $lines     = trufi_group_patterns_by_line($patterns);
 
     $stats = [
-        'lines'    => count($lines),
-        'patterns' => count($patterns),
+        'sindicatos' => count(array_unique(array_filter(array_map(fn($line) => $line['sindicato']['slug'] ?? null, $lines)))),
+        'lines'      => count($lines),
+        'patterns'   => count($patterns),
     ];
 
     $page_title       = 'Rutas · Explora las líneas sobre el mapa - ' . get_bloginfo('name');
@@ -200,6 +237,9 @@ function trufi_maps_render_routes_index() {
 
     $replacement_values = [
         "{{pageTitle}}"     => esc_html($page_title),
+        "{{statsSindicatos}}"       => esc_html((string) $stats['sindicatos']),
+        "{{sindicatosStatHidden}}"  => $stats['sindicatos'] ? '' : 'hidden',
+        "{{sindicatoFilterHidden}}" => $stats['sindicatos'] ? '' : 'hidden',
         "{{statsLines}}"    => esc_html((string) $stats['lines']),
         "{{statsPatterns}}" => esc_html((string) $stats['patterns']),
         "{{showLocation}}"  => $show_location === '1' ? '1' : '0',

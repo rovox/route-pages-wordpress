@@ -3,7 +3,8 @@
         <div class="trufi-hero-copy">
             <a class="trufi-route-back" href="{{indexUrl}}"><span class="trufi-icon" data-icon="arrowLeft" aria-hidden="true"></span> Ver todas las rutas</a>
             <h1 id="routeName">{{routeHeadline}}</h1>
-            <p>{{routeSubtitle}}</p>
+            <p class="trufi-route-subtitle">{{routeSubtitle}}</p>
+            <p class="trufi-route-sindicato" {{routeSindicatoHidden}}><span class="trufi-icon" data-icon="users" aria-hidden="true"></span> Sindicato: {{routeSindicato}}</p>
         </div>
         <div class="trufi-hero-stats">
             <div class="trufi-hero-stat">
@@ -17,22 +18,13 @@
         </div>
     </div>
 
-    <div class="trufi-route-toolbar">
-        <div class="trufi-store-buttons">
-            <a href="{{googlePlayUrl}}" id="google-play-btn">
-                <img src="{{googlePlayImage}}" alt="Descargar en Google Play">
-            </a>
-            <a href="{{appleStoreUrl}}" id="apple-store-btn">
-                <img src="{{appleStoreImage}}" alt="Descargar en la App Store">
-            </a>
-        </div>
-    </div>
+    {{storeButtonsHtml}}
 
     <div class="trufi-route-body">
         <div class="trufi-route-sidebar">
             <div class="trufi-list-title">
                 <span class="trufi-list-title-label"><span class="trufi-icon" data-icon="route" aria-hidden="true"></span> Paradas</span>
-                <button type="button" class="trufi-icon-btn" id="trufi-route-share" title="Compartir esta ruta"><span class="trufi-icon" data-icon="share" aria-hidden="true"></span></button>
+                <button type="button" class="trufi-share-btn" id="trufi-route-share">Compartir</button>
             </div>
             <ul class="trufi-stops-list" id="trufi-route-stops">{{stopsListHtml}}</ul>
         </div>
