@@ -1,6 +1,38 @@
 <?php global $plugin_url; ?>
 <div class="wrap">
     <h1><img src="<?php echo $plugin_url . '/assets/img/trufi-logo.svg' ?>" alt="Trufi Logo"/>&nbsp;<?php echo esc_html(get_admin_page_title()); ?></h1>
+
+    <h2><?php _e('Estado del plugin', 'TrufiApi-maps'); ?></h2>
+    <p class="description"><?php _e('Comprobaciones de solo lectura de la API, los datos, la página base, robots.txt, el sitemap y la caché. Se ejecutan al abrir esta página.', 'TrufiApi-maps'); ?></p>
+    <table class="widefat striped trufi-status-table" style="max-width: 960px;">
+        <thead>
+            <tr>
+                <th style="width: 200px;"><?php _e('Comprobación', 'TrufiApi-maps'); ?></th>
+                <th style="width: 110px;"><?php _e('Estado', 'TrufiApi-maps'); ?></th>
+                <th><?php _e('Detalle y qué hacer', 'TrufiApi-maps'); ?></th>
+            </tr>
+        </thead>
+        <tbody>
+        <?php foreach ($status_checks as $check):
+            $labels = ['ok' => __('OK', 'TrufiApi-maps'), 'warning' => __('Aviso', 'TrufiApi-maps'), 'error' => __('Error', 'TrufiApi-maps')];
+            $colors = ['ok' => '#2e7d32', 'warning' => '#b26a00', 'error' => '#c62828'];
+        ?>
+            <tr>
+                <td><strong><?php echo esc_html($check['label']); ?></strong></td>
+                <td><span style="color: <?php echo $colors[$check['status']]; ?>; font-weight: 600;"><?php echo esc_html($labels[$check['status']]); ?></span></td>
+                <td>
+                    <?php echo esc_html($check['detail']); ?>
+                    <?php if ($check['hint'] !== ''): ?>
+                        <br><span class="description"><?php echo esc_html($check['hint']); ?></span>
+                    <?php endif; ?>
+                </td>
+            </tr>
+        <?php endforeach; ?>
+        </tbody>
+    </table>
+    <p><a class="button" href="<?php echo esc_url(add_query_arg('trufi_recheck', time())); ?>"><?php _e('Volver a comprobar', 'TrufiApi-maps'); ?></a></p>
+
+    <h2><?php _e('Configuración', 'TrufiApi-maps'); ?></h2>
     <form method="post" action="">
         <?php wp_nonce_field('trufi_api_options_nonce', 'trufi_api_options_nonce'); ?>
         <table class="form-table">

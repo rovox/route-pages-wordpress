@@ -72,6 +72,7 @@ The repo has a tracked local dev stack: `docker-compose.dev.yml` + `.env.dev.exa
 - TTL comes from the `trufi_cache_ttl` option (hours). The admin "Clear Cache" page (`delete_trufi_transients()` in admin/transient-cache-clear.php) clears via raw `option_name LIKE` SQL and only catches the `trufi_route%` prefix — any newly named transient must keep that prefix or be added to the query.
 - All option names are `TRUFI_*_OPTION` constants centralized in `functions/constants.php` — reuse, don't string-literal option names.
 - Saving settings flushes rewrite rules, records the previous base path for legacy redirects, and clears transients (`admin/admin-settings.php`).
+- The Settings page starts with a **read-only status panel** (`admin/status-checks.php`, `trufi_status_checks()`): PHP version, API, sindicatos dataset, base page, rewrite rules, robots.txt, sitemap, store buttons, page-cache plugins. It exists so a site admin without server access can verify a deploy from wp-admin. Its checks must stay read-only (no option or transient writes). Own-site URLs on localhost (local Docker) are fetched via `127.0.0.1` with the original Host header (`trufi_fetch_own_url()`), since the container can't reach its published port.
 
 ## Conventions
 

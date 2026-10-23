@@ -4,7 +4,7 @@
  * Plugin Name: Trufi Route Pages
  * Plugin URI: https://trufi.app/
  * Description: A plugin for displaying Trufi Maps.
- * Version: 0.10.0
+ * Version: 0.10.1
  * Author: Trufi Association
  * Author URI: https://trufi.app/
  * Requires at least: 6.4.1
@@ -56,6 +56,7 @@ require($plugin_dir . 'functions/rest-api.php');
 require($plugin_dir . 'functions/llms-txt.php');
 
 if (is_admin()) {
+    require($plugin_dir . 'admin/status-checks.php');
     require($plugin_dir . 'admin/admin-settings.php');
     require($plugin_dir . 'admin/transient-cache-clear.php');
     require($plugin_dir . 'admin/functions/enqueue-scripts.php');

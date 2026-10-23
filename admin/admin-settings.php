@@ -80,6 +80,7 @@ function trufi_routes_settings_page() {
         echo '<div class="notice notice-success is-dismissible"><p>' . __('Configuration saved.', 'TrufiApi-maps') . '</p></div>';
     }
 
+    $status_checks = trufi_status_checks();
     include(plugin_dir_path(__FILE__) . '../templates/admin-settings-form.php');
 }
 
