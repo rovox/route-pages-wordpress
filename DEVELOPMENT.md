@@ -17,7 +17,11 @@ There is no real post for a route. The whole feature is a fabrication pipeline:
 
 1. **Rewrite** (`functions/rewrite-rules.php`): `^{base}/([^/]+)/([^/]+)/?` maps to query vars `trufi_map_name` + `trufi_map_id`. `{base}` defaults to `routes` but is derived from the **Base Page for Maps** setting via `trufi_get_base_path()` (`functions/functions.php`).
 2. **Render** (`functions/template-redirect.php`, on `template_redirect`): fabricates a global `$post`, stamps `is_page` / `is_singular` on `$wp_query`, and injects the minified template HTML into `$post->post_content`. `the_title` is filtered to the route name (with an add/remove hack around nav menus). A companion `pre_get_posts` filter (`disable_other_posts`) prevents unrelated posts leaking into the main query.
-3. Route data comes from the GraphQL query `pattern(id) { route { id, shortName, longName }, geometry { lat, lon } }` (`App/Api/TrufiApi.php`).
+3. Route data comes from the GraphQL query `pattern(id) { route { id, shortName, longName }, geometry { lat, lon }, stops { name, lat, lon, code } }` (`App/Api/TrufiApi.php`). `Stop.name` is the street/intersection name shown in the stop list and marker tooltips.
+
+**Routes index:** the Base Page itself (`GET /{base}`, no route segments) renders a searchable sidebar + map of all lines (`trufi_maps_render_routes_index()` in `functions/template-redirect.php`, `templates/routes-index-template.html`). Per-pattern geometry and stops are fetched on demand from `GET /wp-json/trufi/v1/pattern/{id}` (`functions/rest-api.php`). Lines are grouped by route `shortName` (`trufi_group_patterns_by_line()`); the feed has no real operator/agency data.
+
+**Data access:** both pages and the REST endpoint read data through `trufi_fetch_route_data($mapId)` / `trufi_fetch_index_data()` (`functions/functions.php`), which wrap `TrufiApi` with the transient check. Add new API calls the same way.
 
 **URL base path — single source of truth:** both the rewrite rule (`functions/rewrite-rules.php`) and the sitemap provider (`App/Providers/TrufiRoutesSitemapProvider.php`) call the shared `trufi_get_base_path()` helper (`functions/functions.php`), which resolves to `get_post_field('post_name', $map_page_id)`. They used to diverge — the sitemap called `get_page_uri()` instead, which returns the full hierarchical path for a child page and silently produced sitemap URLs that didn't match the rewrite rule (404s) unless the Base Page was top-level. Fixed by routing both through the same helper; **still create the Base Page as top-level** since a page's slug isn't guaranteed unique across the site otherwise.
 
@@ -32,27 +36,32 @@ There is no real post for a route. The whole feature is a fabrication pipeline:
 
 ### Templates & rendering
 
-- `templates/map-template.html` is a static shell with `{{placeholder}}` tokens. `template-redirect.php` does a `str_replace` with values fetched from the settings (line color, store URLs, API URL, …) and injects the full GraphQL response as JSON into a `<script>const data = ...;</script>` block. It also injects `{{routeName}}` / `{{routeShortName}}` / `{{routeDescription}}` (route-specific, `esc_html()`-escaped text) so the rendered page has real per-route visible content instead of a generic, identical-on-every-page blurb.
+- `templates/map-template.html` (route page) and `templates/routes-index-template.html` (index) are static HTML shells with text-content `{{placeholder}}` tokens only (headline, stats, image/URL attributes). `template-redirect.php` fills them with `str_replace` using `esc_html()`/`esc_attr()`-escaped values and runs `remove_all_filters('the_content')` first, because WP's default content filters (wpautop, shortcodes…) would corrupt the page's inline markup.
+- There is no inline `<style>`/`<script>`. Structured data (GraphQL results, option values, REST URL, map center/zoom) goes to the page scripts through `wp_localize_script` as `trufiIndexConfig` / `trufiRouteConfig`, passed through `trufi_defang_script_close()`. Don't add `{{placeholder}}` tokens for anything JS needs — extend the localized config instead.
+- CSS/JS live in `assets/css/` and `assets/js/` and are enqueued by `functions/enqueue-scripts.php`, which decides which of the two page types is being rendered. Shared modules: `trufi-icons.js`, `trufi-geo.js`, `trufi-share.js`, `trufi-distance.js`, `trufi-route-draw.js`, `trufi-api.js`, `trufi-search.js`; page bootstraps are `trufi-index.js` / `trufi-route.js`.
 - `minify_html()` (`functions/functions.php`) strips HTML comments and whitespace at render time.
-- Leaflet 1.7.1 (unpkg) and OpenStreetMap tiles are hardcoded in the `wp_head` tags and the template. There is **no bundler** — edit in place.
-- `trufi_add_header_tags()` (`functions/functions.php`) prints the `<head>` SEO tags: meta description, `robots`, `canonical`, Open Graph/Twitter card tags, and a `BreadcrumbList` JSON-LD block (Home → base page → route). See the "SEO & AI-crawler notes" section of `README.md` for the rationale.
+- Leaflet 1.7.1 (unpkg) and OpenStreetMap tiles are loaded by `trufi_add_header_tags()` (`wp_head`) and the page scripts. There is **no bundler** — edit in place.
+- `trufi_add_header_tags()` also prints the `<head>` SEO tags: meta description, `robots`, `canonical`, Open Graph/Twitter card tags, and a `BreadcrumbList` JSON-LD block (Home → base page → route). See the "SEO & AI-crawler notes" section of `README.md`.
+- The "Mi ubicación" button can be disabled via the `trufi_show_location` setting (`TRUFI_SHOW_LOCATION_OPTION`).
 
 ### Caching & settings
 
-- Two transient caches:
-  - Per-route: `trufi_route_data_{mapId}` (in `template-redirect.php`).
+- Three transient caches (all keep the `trufi_route%` prefix):
+  - Per-route: `trufi_route_data_{mapId}` via `trufi_fetch_route_data()` (shared by the route page, the REST endpoint and `enqueue-scripts.php`).
+  - Routes index list: `trufi_routes_index_list` via `trufi_fetch_index_data()`.
   - Sitemap: `trufi_routes_sitemap_xml` (in the sitemap provider).
 - TTL comes from the `trufi_cache_ttl` option (hours).
 - The admin **Clear Cache** page (`delete_trufi_transients()` in `admin/transient-cache-clear.php`) clears via raw `option_name LIKE` SQL and only catches the `trufi_route%` prefix — any newly named transient must keep that prefix or be added to the query.
-- Saving **Settings → Trufi Routes** flushes rewrite rules and clears transients (`admin/admin-settings.php:50-51`).
+- Saving **Settings → Trufi Routes** flushes rewrite rules and clears transients (`admin/admin-settings.php:62-63`).
 
 ## Development workflow
 
-This repo has **no build, test, lint, typecheck, or CI tooling** (CONTRIBUTING.md mentions a "test suite"/"lint check", but nothing exists here). All changes are verified manually in a real WordPress install against a Trufi GraphQL endpoint.
+This repo has **no build, test, lint, typecheck, or CI tooling**. All changes are verified manually in a real WordPress install against a Trufi GraphQL endpoint.
 
 Verification surface:
 
 - Sitemap: `GET /wp-sitemap-routes-1.xml`
+- The routes index: `GET /{base}`
 - A rendered route page: `GET /{base}/<name>/<route-code>`
 
 Conventions:
@@ -73,8 +82,6 @@ docker compose -f docker-compose.dev.yml up -d
 
 It's named `docker-compose.dev.yml`, not `docker-compose.yml`, because this repo's `.gitignore` excludes any plain `docker-compose.yml` / `docker` path — that rule predates this stack and was left in place to keep ad-hoc local compose files untracked.
 
-**Alternative:** `trufi-website-modules/` (if present locally) is a **separate, uncommitted git clone** of the official `trufi-association/trufi-website-modules` repo — a different WordPress + MySQL + phpMyAdmin stack maintained outside this plugin's repo. It is unrelated to this codebase; per `AGENTS.md`, don't edit, inspect, or commit it. `PLAN.md` documents the bring-up steps that were used with it in an earlier session, kept for historical reference.
-
 ### Working Trufi GraphQL endpoint (validated)
 
 | Property | Value |
@@ -82,7 +89,7 @@ It's named `docker-compose.dev.yml`, not `docker-compose.yml`, because this repo
 | Endpoint | `https://otp281.trufi.app/otp/routers/default/index/graphql` |
 | Data | Public Trufi/OpenTripPlanner 2.8 instance for **Cochabamba, Bolivia** |
 | Sitemap query | `{ patterns { code, route { longName } } }` |
-| Route query | `query($id: String!) { pattern(id: $id) { route { id, shortName, longName }, geometry { lat, lon } } }` |
+| Route query | `query($id: String!) { pattern(id: $id) { route { id, shortName, longName }, geometry { lat, lon }, stops { name, lat, lon, code } } }` |
 
 Configure it in **Settings → Trufi Routes → GraphQL server URL**.
 
@@ -111,14 +118,14 @@ In-repo:
 - `docker-compose.dev.yml` + `.env.dev.example` — the tracked local dev stack.
 - `CONTRIBUTING.md` — contribution process.
 - `AGENTS.md` — concise agent-facing notes and gotchas (kept up to date).
-- `PLAN.md` — an earlier session's local testing bring-up plan against `trufi-website-modules/` (historical; superseded by `docker-compose.dev.yml` for new setups).
 - Code:
   - `App/Api/TrufiApi.php` — the GraphQL client and the two queries used.
   - `App/Utility.php` — locale-dependent slug word (`replaceArrowWithWord`).
   - `App/Providers/TrufiRoutesSitemapProvider.php` — sitemap URL generation + caching.
-  - `functions/*.php` — rewrite rules, template redirect, sitemap registration, constants, header tags.
+  - `functions/*.php` — rewrite rules, template redirect, REST endpoint, asset enqueueing, sitemap registration, constants, header tags.
   - `admin/*.php` — settings page, clear-cache page.
-  - `templates/map-template.html` — the rendered route page shell.
+  - `templates/map-template.html`, `templates/routes-index-template.html` — the route page and routes index shells.
+  - `assets/css/`, `assets/js/` — page styles and scripts.
 
 External (Trufi Association / OpenTripPlanner):
 

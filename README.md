@@ -37,8 +37,6 @@ You can test if the plugin works by accessing the URL path `/wp-sitemap-routes-1
 
 There is no build tooling in this repo (no composer, no autoloader, no test suite) — the plugin is verified by running it inside a real WordPress install. `docker-compose.dev.yml` (repo root) spins up that install for you: WordPress + MySQL + phpMyAdmin, with this repo live-mounted as the plugin folder so edits are reflected immediately without reinstalling anything.
 
-> The compose file is named `docker-compose.dev.yml`, not `docker-compose.yml` — this repo's `.gitignore` deliberately excludes a plain `docker-compose.yml` / `docker` path to keep throwaway local files out of version control. `docker-compose.dev.yml` is the tracked, shared one.
-
 Image versions used (checked 2026-09-23):
 
 | Service | Image | Why |
@@ -74,10 +72,11 @@ docker compose --env-file .env.dev -f docker-compose.dev.yml up -d
 
 ```bash
 curl -s http://localhost:8081/wp-sitemap-routes-1.xml
+curl -s http://localhost:8081/routes/
 curl -s http://localhost:8081/routes/<route-name-slug>/<route-code>
 ```
 
-The first should return an `<urlset>` of route URLs; the second should return the route page HTML with a `const data = {...}` block containing the GraphQL route geometry. Use phpMyAdmin (`http://localhost:8080`, user `wordpress`) to inspect the `trufi_route_data_*` and `trufi_routes_sitemap_xml` transients if something looks stale.
+The first should return an `<urlset>` of route URLs; the second is the routes index page (searchable list + map of all lines); the third is a route detail page (map, stats and stop list). Route geometry and stops are passed to the page scripts through `wp_localize_script` (`trufiRouteConfig` / `trufiIndexConfig`). Use phpMyAdmin (`http://localhost:8080`, user `wordpress`) to inspect the `trufi_route_data_*` and `trufi_routes_sitemap_xml` transients if something looks stale.
 
 ### Testing against a real Trufi GraphQL endpoint
 
@@ -110,9 +109,14 @@ Two things are **outside the plugin's control** and worth checking per-site:
 - **`robots.txt`** — make sure WordPress's "Discourage search engines from indexing this site" setting is off, and that no AI-crawler user agent (`GPTBot`, `ClaudeBot`, `Google-Extended`, `PerplexityBot`, `CCBot`, …) is blocked, if you want route pages surfaced by AI answer engines.
 - **Sitemap submission** — `/wp-sitemap-routes-1.xml` is a real WordPress core sitemap page (linked from `/wp-sitemap.xml`); submit it to Google Search Console / Bing Webmaster Tools as usual.
 
-## UI redesign (Figma prototypes)
+## Features
 
-A redesign of the route page interface is planned, based on Figma prototypes. No implementation work against those prototypes has landed in this repo yet — the pieces that would need updating are `templates/map-template.html` (the page shell) and `functions/functions.php` / `functions/template-redirect.php` (the values injected into it). There's no bundler here, so any new CSS/JS is added inline or as static files under `assets/`, hand-edited like the rest of the template (see [DEVELOPMENT.md](DEVELOPMENT.md)).
+- **Routes index** at the Base Page URL (`/{base}`): searchable sidebar plus a map of all lines; route geometry is fetched on demand from the plugin's REST endpoint (`/wp-json/trufi/v1/pattern/{id}`).
+- **Route detail pages** at `/{base}/<name>/<route-code>`: map with direction arrows, origin/destination markers, stop list with street names, distance stat and a share button.
+- **"Mi ubicación" button** on both maps (browser geolocation, with an approximate IP-based fallback). It can be disabled in the plugin settings.
+- **Core sitemap** at `/wp-sitemap-routes-1.xml`.
+
+CSS and JS live as plain static files under `assets/` (no bundler). See [DEVELOPMENT.md](DEVELOPMENT.md) for architecture details.
 
 ## Contributing
 
