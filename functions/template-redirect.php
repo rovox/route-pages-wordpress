@@ -1,14 +1,17 @@
 <?php
 
-add_action('template_redirect', 'trufi_maps_template_redirect');
-function trufi_maps_template_redirect() {
-    // A route URL under a previous base page (see trufi_maps_add_rewrite_rules()):
-    // send it permanently to the same route under the current base.
+// A route URL under a previous base page (see trufi_maps_add_rewrite_rules()):
+// send it permanently to the same route under the current base. Priority 1,
+// before core's redirect_canonical, so it's a single 301 hop.
+add_action('template_redirect', function () {
     if (get_query_var('trufi_legacy') && get_query_var('trufi_map_id') && get_query_var('trufi_map_name')) {
         wp_safe_redirect(trufi_route_url(sanitize_title(get_query_var('trufi_map_name')), rawurldecode(get_query_var('trufi_map_id'))), 301);
         exit;
     }
+}, 1);
 
+add_action('template_redirect', 'trufi_maps_template_redirect');
+function trufi_maps_template_redirect() {
     if (!get_query_var('trufi_map_id') && !get_query_var('trufi_map_name') && is_page((int) get_option(TRUFI_MAP_PAGE_ID_OPTION))) {
         trufi_maps_render_routes_index();
         return;
