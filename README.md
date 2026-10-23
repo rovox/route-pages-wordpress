@@ -22,16 +22,24 @@ We are a non-profit NGO founded by a group of German and Bolivian volunteers in 
 
 ## Installation
 
-1. Compress the plugin files in a .zip file named `TrufiApi-maps`.
-2. Use the regular Wordpress plugin installation process to install the .zip file.
+1. Build the plugin zip from a git ref (only the plugin's own files, no dev stack/docs). The folder prefix must match the plugin folder of the site you install into (`trufi-maps` on trufi.app):
+   ```bash
+   git archive --format=zip --prefix=trufi-maps/ -o trufi-maps.zip HEAD \
+     admin App assets functions templates trufi-maps.php LICENSE README.md
+   ```
+2. Use the regular Wordpress plugin installation process to install the .zip file (Plugins → Add New → Upload Plugin).
 3. Navigate to Wordpress administration and then configuration.
 4. Set the required values for this plugin, such as the Graphql server URL.
    1. If your are using OpenTripPlanner v1, the Graphql URL might be something like `https://yourotp.example.com/otp/routers/default/index/graphql`
-   2. You need to create a new empty base page for the routes
+   2. You need to create a new empty base page for the routes (its content is replaced by the routes index)
+
+### Updating an installed copy
+
+Upload the new zip the same way and choose **"Replace current with uploaded"** — the zip's folder prefix must equal the installed plugin's folder, or WordPress installs a second copy. Then open the plugin settings and click **Save** (flushes rewrite rules and clears the route caches). Don't use the built-in plugin file editor for releases: it can't add new files and has no rollback.
 
 ## Testing
 
-You can test if the plugin works by accessing the URL path `/wp-sitemap-routes-1.xml` of your page.
+You can test if the plugin works by accessing the URL path `/wp-sitemap-routes-1.xml` of your page (it should list every route, and each URL should answer 200), the base page (routes index), and `/llms.txt`.
 
 ## Local development with Docker
 

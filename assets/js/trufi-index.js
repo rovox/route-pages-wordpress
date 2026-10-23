@@ -1,9 +1,14 @@
 /**
- * Bootstraps the routes index page: builds the sidebar from
- * `trufiIndexConfig.lines` (localized by enqueue-scripts.php) grouped by
- * operator ("sindicato"), wires the search/filter UI (trufi-search.js), the
- * overview map + geolocation (trufi-geo.js) and the "Compartir" buttons
- * (trufi-share.js). Each route row is a plain link to its detail page.
+ * Bootstraps the routes index page: wires the search/filter UI
+ * (trufi-search.js), the overview map + geolocation (trufi-geo.js) and the
+ * "Compartir" buttons (trufi-share.js). Each route row is a plain link to
+ * its detail page.
+ *
+ * The full list (grouped by operator, "sindicato") is server-rendered by
+ * trufi_render_routes_list_html() (template-redirect.php) so crawlers see
+ * every route link without JS; it's only rebuilt here from
+ * `trufiIndexConfig.lines` when the visitor filters. renderGroup() and
+ * renderLine() below must produce the same markup as that PHP function.
  *
  * The filters are mirrored in the URL (`?sindicato=<slug>&modo=<mode>&q=<text>`)
  * via history.replaceState, so a shared sindicato link opens pre-filtered
@@ -69,8 +74,15 @@
     const hasSindicatos = Object.keys(sindicatos).length > 0;
     const otherLinesTotal = lines.reduce(function (sum, line) { return sum + (line.sindicato ? 0 : line.patterns.length); }, 0);
 
+    // Same order as the server-rendered list (accent/case-insensitive).
+    function byName(a, b) {
+        const x = Trufi.search.normalize(a.name);
+        const y = Trufi.search.normalize(b.name);
+        return x < y ? -1 : (x > y ? 1 : 0);
+    }
+
     Object.values(sindicatos)
-        .sort(function (a, b) { return a.name.localeCompare(b.name, 'es'); })
+        .sort(byName)
         .forEach(function (s) {
             const opt = document.createElement('option');
             opt.value = s.slug;
@@ -117,17 +129,16 @@
         return pattern.longName;
     }
 
+    // Clicks are handled once, by delegation on the list (see below), so the
+    // same data-share-* attributes work for server- and JS-rendered rows.
     function shareButton(url, title, label) {
         const btn = document.createElement('button');
         btn.type = 'button';
         btn.className = 'trufi-share-btn';
         btn.textContent = 'Compartir';
+        btn.setAttribute('data-share-url', url);
+        btn.setAttribute('data-share-title', title);
         btn.setAttribute('aria-label', label);
-        btn.addEventListener('click', function (e) {
-            e.preventDefault();
-            e.stopPropagation();
-            Trufi.share.copyOrShare(url, title);
-        });
         return btn;
     }
 
@@ -230,7 +241,7 @@
             });
 
             Object.keys(groups)
-                .sort(function (a, b) { return sindicatos[a].name.localeCompare(sindicatos[b].name, 'es'); })
+                .sort(function (a, b) { return byName(sindicatos[a], sindicatos[b]); })
                 .forEach(function (slug) {
                     const s = sindicatos[slug];
                     listEl.appendChild(renderGroup(s.name, s.total, s.slug, groups[slug]));
@@ -244,6 +255,13 @@
         Trufi.icons.mount(listEl);
     }
 
+    listEl.addEventListener('click', function (e) {
+        const btn = e.target.closest('.trufi-share-btn');
+        if (!btn) return;
+        e.preventDefault();
+        Trufi.share.copyOrShare(btn.getAttribute('data-share-url'), btn.getAttribute('data-share-title'));
+    });
+
     searchEl.addEventListener('input', update);
     modeEl.addEventListener('change', update);
     sindicatoEl.addEventListener('change', update);
@@ -254,5 +272,9 @@
         update();
     });
 
-    render();
+    // The server already rendered the unfiltered list; only rebuild it when
+    // the page was opened with filters (shared sindicato link, Back button).
+    if (searchEl.value || modeEl.value || sindicatoEl.value) {
+        render();
+    }
 })();

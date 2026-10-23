@@ -15,6 +15,9 @@ define('TRUFI_MAP_CENTER_LNG_OPTION', 'trufi_map_center_lng');
 define('TRUFI_MAP_ZOOM_OPTION', 'trufi_map_zoom');
 define('TRUFI_SHOW_LOCATION_OPTION', 'trufi_show_location');
 define('TRUFI_SINDICATOS_URL_OPTION', 'trufi_sindicatos_url');
+// Base paths of previously used "Base Page for Maps" pages; route URLs under
+// them 301 to the current base (see functions/rewrite-rules.php).
+define('TRUFI_LEGACY_BASE_PATHS_OPTION', 'trufi_legacy_base_paths');
 // Open OSM-derived dataset of Cochabamba's transport operators ("sindicatos"),
 // used to fill in what the Trufi feed lacks (every route's agency is "default").
 define('TRUFI_SINDICATOS_DEFAULT_URL', 'https://ismadavidaa.github.io/sindicatos-viewer/dashboard-data.json');

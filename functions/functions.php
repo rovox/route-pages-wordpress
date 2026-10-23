@@ -18,15 +18,15 @@ use App\Utility;
  * @return array|null
  */
 function trufi_fetch_route_data(string $mapId): array|null {
-    $apiUrl        = get_option(TRUFI_API_URL_OPTION);
-    $cacheKey      = 'trufi_route_data_' . $mapId;
-    $cacheLifetime = get_option(TRUFI_CACHE_TTL_OPTION) * 60 * 60;
-
+    $cacheKey  = 'trufi_route_data_' . $mapId;
     $routeData = get_transient($cacheKey);
-    if (false === $routeData) {
-        $trufiApi  = new TrufiApi($apiUrl);
-        $routeData = $trufiApi->fetchRoute($mapId);
-        set_transient($cacheKey, $routeData, $cacheLifetime);
+    if (is_array($routeData)) {
+        return $routeData;
+    }
+
+    $routeData = trufi_api_call(fn(TrufiApi $api) => $api->fetchRoute($mapId));
+    if (!empty($routeData['data']['pattern'])) {
+        set_transient($cacheKey, $routeData, get_option(TRUFI_CACHE_TTL_OPTION) * 60 * 60);
     }
 
     return $routeData;
@@ -39,18 +39,38 @@ function trufi_fetch_route_data(string $mapId): array|null {
  * @return array|null
  */
 function trufi_fetch_index_data(): array|null {
-    $apiUrl        = get_option(TRUFI_API_URL_OPTION);
-    $cacheKey      = 'trufi_routes_index_list';
-    $cacheLifetime = get_option(TRUFI_CACHE_TTL_OPTION) * 60 * 60;
-
+    $cacheKey  = 'trufi_routes_index_list';
     $indexData = get_transient($cacheKey);
-    if (false === $indexData) {
-        $trufiApi  = new TrufiApi($apiUrl);
-        $indexData = $trufiApi->routeIndexList();
-        set_transient($cacheKey, $indexData, $cacheLifetime);
+    if (is_array($indexData)) {
+        return $indexData;
+    }
+
+    $indexData = trufi_api_call(fn(TrufiApi $api) => $api->routeIndexList());
+    if (!empty($indexData['data']['patterns'])) {
+        set_transient($cacheKey, $indexData, get_option(TRUFI_CACHE_TTL_OPTION) * 60 * 60);
     }
 
     return $indexData;
+}
+
+/**
+ * Runs one TrufiApi call against the configured endpoint, turning failures
+ * (unreachable host, expired TLS certificate, non-200 response - TrufiApi
+ * throws on those) into a null result instead of a fatal error. Callers
+ * only cache successful, non-empty results, so a temporary API outage is
+ * retried on the next request instead of being cached for the whole TTL.
+ *
+ * @param callable(TrufiApi): (array|null) $call
+ *
+ * @return array|null
+ */
+function trufi_api_call(callable $call): array|null {
+    try {
+        return $call(new TrufiApi((string) get_option(TRUFI_API_URL_OPTION)));
+    } catch (\Throwable $e) {
+        error_log('Trufi Route Pages: API request failed - ' . $e->getMessage());
+        return null;
+    }
 }
 
 /**
@@ -239,11 +259,9 @@ function trufi_group_patterns_by_line(array $patterns): array {
 }
 
 /**
- * The public URL of a single route detail page - the same URL the sitemap
- * provider generates (`App\Providers\TrufiRoutesSitemapProvider::getRouteUrls()`),
- * reimplemented here so the index page's per-route "share" button can link
- * straight to it without a page reload. Keep this in sync with that method
- * if the slug scheme ever changes.
+ * The public URL of a single route detail page - the single source of truth
+ * for route URLs: the sitemap provider, the index page's links/share
+ * buttons, canonicals, JSON-LD and llms.txt all build them through here.
  *
  * @param string $longName
  * @param string $code
@@ -251,10 +269,18 @@ function trufi_group_patterns_by_line(array $patterns): array {
  * @return string
  */
 function trufi_pattern_url(string $longName, string $code): string {
-    $base_path = trufi_get_base_path();
-    $slug      = sanitize_title(Utility::replaceArrowWithWord($longName));
+    return trufi_route_url(sanitize_title(Utility::replaceArrowWithWord($longName)), $code);
+}
 
-    return home_url("/$base_path/$slug/$code");
+/**
+ * URL of a route detail page from its already-slugified name segment. With
+ * the permalink structure's trailing slash, so sitemap links and canonicals
+ * point at the final URL instead of one that 301s to it.
+ */
+function trufi_route_url(string $slug, string $code): string {
+    $base_path = trufi_get_base_path();
+
+    return home_url(user_trailingslashit("/$base_path/$slug/$code"));
 }
 
 /**
@@ -328,38 +354,120 @@ function trufi_get_base_path(): string {
   return $map_page_id ? get_post_field('post_name', $map_page_id) : 'routes';
 }
 
-function trufi_add_header_tags($page_title, $page_description, $route_name = '', $map_page_id = 0)
-{
-  $current_url = esc_url(home_url($_SERVER['REQUEST_URI']));
+/**
+ * Prepares the <head> of one of this plugin's two virtual pages (routes
+ * index, route detail) for search engines and AI crawlers. Must run before
+ * wp_head (it's called from the template_redirect render functions):
+ *
+ *  - replaces WordPress's own rel_canonical, which points every virtual
+ *    route page at the base page (the route pages have no post of their own)
+ *    and would mark all of them as duplicates of it;
+ *  - sets the document title (no "- Site - Site" duplication) and
+ *    `lang="es"` (the page content is Spanish whatever the site locale is);
+ *  - prints description, canonical, Open Graph/Twitter tags and JSON-LD.
+ *
+ * Robots meta is left to WordPress core (wp_robots), so there's only one.
+ *
+ * @param array{title: string, description: string, canonical: string, og_type?: string, jsonld?: array} $meta
+ *        `jsonld` is a list of schema.org nodes, printed as one @graph.
+ */
+function trufi_setup_page_head(array $meta): void {
+    remove_action('wp_head', 'rel_canonical');
 
-  echo '<meta name="description" content="' . esc_attr($page_description) . '">';
-  echo '<meta name="robots" content="index, follow">';
-  echo '<link rel="canonical" href="' . $current_url . '">';
-  echo '<meta property="og:title" content="' . esc_attr($page_title) . '">';
-  echo '<meta property="og:description" content="' . esc_attr($page_description) . '">';
-  echo '<meta property="og:type" content="website">';
-  echo '<meta property="og:url" content="' . $current_url . '">';
-  echo '<meta name="twitter:card" content="summary_large_image">';
-  echo '<meta name="twitter:title" content="' . esc_attr($page_title) . '">';
-  echo '<meta name="twitter:description" content="' . esc_attr($page_description) . '">';
+    add_filter('pre_get_document_title', fn() => $meta['title']);
+    add_filter('language_attributes', fn($output) => preg_replace('/lang="[^"]*"/', 'lang="es"', $output));
+    add_action('wp_head', fn() => trufi_add_header_tags($meta), 7);
+}
+
+/**
+ * @param array $meta See trufi_setup_page_head().
+ */
+function trufi_add_header_tags(array $meta): void {
+  $title       = $meta['title'];
+  $description = $meta['description'];
+  $canonical   = esc_url($meta['canonical']);
+  $image       = apply_filters('trufi_og_image', get_site_icon_url(512));
+
+  echo '<meta name="description" content="' . esc_attr($description) . '">';
+  echo '<link rel="canonical" href="' . $canonical . '">';
+  echo '<meta property="og:site_name" content="' . esc_attr(get_bloginfo('name')) . '">';
+  echo '<meta property="og:locale" content="es_ES">';
+  echo '<meta property="og:title" content="' . esc_attr($title) . '">';
+  echo '<meta property="og:description" content="' . esc_attr($description) . '">';
+  echo '<meta property="og:type" content="' . esc_attr($meta['og_type'] ?? 'website') . '">';
+  echo '<meta property="og:url" content="' . $canonical . '">';
+  if ($image) {
+    echo '<meta property="og:image" content="' . esc_url($image) . '">';
+  }
+  echo '<meta name="twitter:card" content="summary">';
+  echo '<meta name="twitter:title" content="' . esc_attr($title) . '">';
+  echo '<meta name="twitter:description" content="' . esc_attr($description) . '">';
   echo '<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />';
   echo '<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>';
 
-  // BreadcrumbList structured data: gives search engines and AI crawlers an
-  // explicit, machine-readable page hierarchy (Home > base page > route).
-  if ($route_name && $map_page_id) {
-    $breadcrumb = [
-      '@context'        => 'https://schema.org',
-      '@type'           => 'BreadcrumbList',
-      'itemListElement' => [
-        ['@type' => 'ListItem', 'position' => 1, 'name' => get_bloginfo('name'), 'item' => home_url('/')],
-        ['@type' => 'ListItem', 'position' => 2, 'name' => get_the_title($map_page_id), 'item' => get_permalink($map_page_id)],
-        ['@type' => 'ListItem', 'position' => 3, 'name' => $route_name, 'item' => $current_url],
-      ],
-    ];
-    echo '<script type="application/ld+json">' . wp_json_encode($breadcrumb) . '</script>';
+  // schema.org structured data (BreadcrumbList, BusTrip, ItemList - see the
+  // render functions in template-redirect.php): an explicit,
+  // machine-readable description of the page for search engines and AI
+  // crawlers. wp_json_encode escapes "/", so API strings can't close the tag.
+  if (!empty($meta['jsonld'])) {
+    $graph = ['@context' => 'https://schema.org', '@graph' => $meta['jsonld']];
+    echo '<script type="application/ld+json">' . wp_json_encode($graph, JSON_UNESCAPED_UNICODE) . '</script>';
   }
 }
+
+/**
+ * schema.org BreadcrumbList node: Home > base page [> current page].
+ *
+ * @param array<array{name: string, url: string}> $trail After "Home".
+ */
+function trufi_breadcrumb_jsonld(array $trail): array {
+  $items = [['name' => get_bloginfo('name'), 'url' => home_url('/')], ...$trail];
+
+  return [
+    '@type'           => 'BreadcrumbList',
+    'itemListElement' => array_map(
+      fn($item, $i) => ['@type' => 'ListItem', 'position' => $i + 1, 'name' => $item['name'], 'item' => $item['url']],
+      $items,
+      array_keys($items)
+    ),
+  ];
+}
+
+/**
+ * Untruncated description text cut to a search-snippet-friendly length.
+ */
+function trufi_meta_description(string $text, int $max = 160): string {
+  $text = trim(preg_replace('/\s+/', ' ', $text));
+
+  return mb_strlen($text) > $max ? rtrim(mb_substr($text, 0, $max - 1)) . '…' : $text;
+}
+
+/**
+ * Adds an Allow rule for this plugin's CSS/JS (some sites disallow
+ * /wp-content/plugins/ wholesale, which stops Google from rendering the
+ * route pages - the map and list need those assets) and makes sure the
+ * sitemap is advertised. Only affects WordPress's virtual robots.txt; a
+ * physical robots.txt file in the site root bypasses this filter.
+ */
+add_filter('robots_txt', function ($output, $public) {
+  if (!$public) {
+    return $output;
+  }
+
+  global $plugin_url;
+  $assets_path = wp_parse_url($plugin_url . 'assets/', PHP_URL_PATH);
+  $allow       = 'Allow: ' . $assets_path;
+  if (stripos($output, $allow) === false) {
+    $output = preg_match('/^User-agent:\s*\*\s*$/mi', $output)
+      ? preg_replace('/^(User-agent:\s*\*\s*)$/mi', "$1\n" . $allow, $output, 1)
+      : "User-agent: *\n" . $allow . "\n" . $output;
+  }
+  if (stripos($output, 'Sitemap:') === false) {
+    $output .= "\nSitemap: " . home_url('/wp-sitemap.xml') . "\n";
+  }
+
+  return $output;
+}, 20, 2);
 
 function minify_html($input)
 {

@@ -2,6 +2,13 @@
 
 add_action('template_redirect', 'trufi_maps_template_redirect');
 function trufi_maps_template_redirect() {
+    // A route URL under a previous base page (see trufi_maps_add_rewrite_rules()):
+    // send it permanently to the same route under the current base.
+    if (get_query_var('trufi_legacy') && get_query_var('trufi_map_id') && get_query_var('trufi_map_name')) {
+        wp_safe_redirect(trufi_route_url(sanitize_title(get_query_var('trufi_map_name')), rawurldecode(get_query_var('trufi_map_id'))), 301);
+        exit;
+    }
+
     if (!get_query_var('trufi_map_id') && !get_query_var('trufi_map_name') && is_page((int) get_option(TRUFI_MAP_PAGE_ID_OPTION))) {
         trufi_maps_render_routes_index();
         return;
@@ -28,6 +35,7 @@ function trufi_maps_render_route_page() {
     $pattern   = $routeData['data']['pattern'] ?? null;
 
     if (!$pattern) {
+        trufi_maps_route_not_available($routeData === null);
         return;
     }
 
@@ -36,9 +44,8 @@ function trufi_maps_render_route_page() {
     $sindicatos        = trufi_fetch_sindicatos_data();
     $labels            = trufi_pattern_labels($long_name, $pattern['headsign'] ?? '', $sindicatos);
     $sindicato         = trufi_line_sindicato($long_name, $route_short_name, $sindicatos);
-    $page_title        = $long_name . ' - ' . get_bloginfo('name');
-    $page_description  = get_option(TRUFI_SITE_DESCRIPTION_OPTION);
-    $meta_description  = $page_description . ' - ' . $long_name;
+    $route_title       = $labels['subtitle'] !== '' ? $labels['headline'] . ': ' . $labels['subtitle'] : $labels['headline'];
+    $page_title        = $route_title . ' | ' . get_bloginfo('name');
     $google_play_url   = get_option(TRUFI_GOOGLE_PLAY_URL_OPTION);
     $apple_store_url   = get_option(TRUFI_APPLE_STORE_URL_OPTION);
     $google_play_image = get_option(TRUFI_GOOGLE_PLAY_IMAGE_OPTION);
@@ -48,15 +55,32 @@ function trufi_maps_render_route_page() {
 
     $stops         = $pattern['stops'] ?? [];
     $distance_km   = trufi_route_distance_km($pattern['geometry'] ?? []);
+    $route_url     = trufi_pattern_url($long_name, $mapId);
+    $meta_description = trufi_meta_description(sprintf(
+        '%s. %d paradas, %s.%s Mira el recorrido en el mapa de Trufi App.',
+        $route_title,
+        count($stops),
+        trufi_format_distance_km($distance_km),
+        $sindicato ? ' Sindicato: ' . $sindicato['name'] . '.' : ''
+    ));
     $stops_list_html = trufi_render_stops_list_html($stops);
     $store_buttons_html = trufi_render_store_buttons_html([
         ['url' => $google_play_url, 'image' => $google_play_image, 'label' => 'Disponible en Google Play', 'alt' => 'Descargar en Google Play'],
         ['url' => $apple_store_url, 'image' => $apple_store_image, 'label' => 'Descargar en App Store', 'alt' => 'Descargar en la App Store'],
     ]);
 
-    add_action('wp_head', function () use ($page_title, $meta_description, $long_name, $map_page_id) {
-        trufi_add_header_tags($page_title, $meta_description, $long_name, $map_page_id);
-    }, 7);
+    trufi_setup_page_head([
+        'title'       => $page_title,
+        'description' => $meta_description,
+        'canonical'   => $route_url,
+        'jsonld'      => [
+            trufi_breadcrumb_jsonld([
+                ['name' => get_post_field('post_title', $map_page_id), 'url' => get_permalink($map_page_id)],
+                ['name' => $route_title, 'url' => $route_url],
+            ]),
+            trufi_route_bustrip_jsonld($pattern, $labels, $sindicato, $route_title, $route_url),
+        ],
+    ]);
 
     $replacement_values = [
         "{{pageTitle}}"        => esc_html($page_title),
@@ -86,7 +110,7 @@ function trufi_maps_render_route_page() {
 
     global $post;
     $post->ID             = $map_page_id;
-    $post->post_title     = $page_title;
+    $post->post_title     = $labels['headline'];
     $post->post_name      = $mapName;
     $post->post_content   = minify_html($template_content);
     $post->comment_status = 'closed';
@@ -129,6 +153,76 @@ function trufi_maps_render_route_page() {
     $wp_query->is_singular = true;
     $wp_query->is_page     = true;
     $wp_query->is_home     = false;
+}
+
+/**
+ * A route URL whose pattern can't be shown: 404 when the API answered but
+ * has no such pattern, 503 (temporary, retry later) when the API itself
+ * failed - so search engines neither index an empty page nor drop a real
+ * route page because of a short outage.
+ *
+ * @param bool $apiFailed
+ *
+ * @return void
+ */
+function trufi_maps_route_not_available(bool $apiFailed) {
+    global $wp_query;
+
+    if ($apiFailed) {
+        status_header(503);
+        header('Retry-After: 3600');
+        nocache_headers();
+        wp_die(
+            esc_html__('Route information is temporarily unavailable. Please try again later.', 'TrufiApi-maps'),
+            esc_html__('Temporarily unavailable', 'TrufiApi-maps'),
+            ['response' => 503]
+        );
+    }
+
+    $wp_query->set_404();
+    status_header(404);
+    nocache_headers();
+}
+
+/**
+ * schema.org BusTrip node for a route detail page: line number/name,
+ * origin and destination stops (with coordinates) and, when known, the
+ * operating sindicato - the facts an AI answer engine needs to cite this
+ * page for "which bus goes from A to B".
+ *
+ * @param array      $pattern   Pattern from trufi_fetch_route_data().
+ * @param array      $labels    trufi_pattern_labels().
+ * @param array|null $sindicato trufi_line_sindicato().
+ * @param string     $name
+ * @param string     $url
+ *
+ * @return array
+ */
+function trufi_route_bustrip_jsonld(array $pattern, array $labels, ?array $sindicato, string $name, string $url): array {
+    $stops = $pattern['stops'] ?? [];
+    $stop  = function (?array $stop, string $label) {
+        if (!$stop && $label === '') {
+            return null;
+        }
+        $node = ['@type' => 'BusStop', 'name' => $label !== '' ? $label : ($stop['name'] ?? '')];
+        if ($stop) {
+            $node['geo'] = ['@type' => 'GeoCoordinates', 'latitude' => (float) $stop['lat'], 'longitude' => (float) $stop['lon']];
+        }
+        return $node;
+    };
+
+    $node = array_filter([
+        '@type'            => 'BusTrip',
+        'name'             => $name,
+        'url'              => $url,
+        'busNumber'        => $pattern['route']['shortName'] ?? '',
+        'busName'          => $pattern['route']['longName'] ?? '',
+        'departureBusStop' => $stop($stops[0] ?? null, $labels['from']),
+        'arrivalBusStop'   => $stop($stops ? $stops[count($stops) - 1] : null, $labels['to']),
+        'provider'         => $sindicato ? ['@type' => 'Organization', 'name' => $sindicato['name']] : null,
+    ]);
+
+    return $node;
 }
 
 /**
@@ -224,19 +318,48 @@ function trufi_maps_render_routes_index() {
         'patterns'   => count($patterns),
     ];
 
-    $page_title       = 'Rutas · Explora las líneas sobre el mapa - ' . get_bloginfo('name');
-    $page_description = get_option(TRUFI_SITE_DESCRIPTION_OPTION);
-    $show_location     = get_option(TRUFI_SHOW_LOCATION_OPTION, '1');
+    $map_page_id   = (int) get_option(TRUFI_MAP_PAGE_ID_OPTION);
+    $index_url     = get_permalink($map_page_id);
+    $page_title    = 'Rutas de micros, trufis y taxi trufis en Cochabamba | ' . get_bloginfo('name');
+    $show_location = get_option(TRUFI_SHOW_LOCATION_OPTION, '1');
+    $description   = trufi_meta_description(sprintf(
+        'Recorridos de %d líneas y %d rutas de micros, trufis y taxi trufis en Cochabamba%s. Busca tu línea y mira su recorrido en el mapa.',
+        $stats['lines'],
+        $stats['patterns'],
+        $stats['sindicatos'] ? sprintf(', de %d sindicatos', $stats['sindicatos']) : ''
+    ));
 
-    add_action('wp_head', function () use ($page_title, $page_description) {
-        trufi_add_header_tags($page_title, $page_description);
-    }, 7);
-    add_filter('pre_get_document_title', function () use ($page_title) {
-        return $page_title;
-    });
+    $item_list = [];
+    foreach ($lines as $line) {
+        foreach ($line['patterns'] as $pattern) {
+            $item_list[] = [
+                '@type'    => 'ListItem',
+                'position' => count($item_list) + 1,
+                'name'     => $pattern['longName'] . ': ' . trufi_pattern_row_label($pattern),
+                'url'      => $pattern['url'],
+            ];
+        }
+    }
+
+    trufi_setup_page_head([
+        'title'       => $page_title,
+        'description' => $description,
+        // Never the filtered URL (?q=, ?sindicato=, ?modo=): one canonical index page.
+        'canonical'   => $index_url,
+        'jsonld'      => [
+            trufi_breadcrumb_jsonld([['name' => get_post_field('post_title', $map_page_id), 'url' => $index_url]]),
+            [
+                '@type'           => 'ItemList',
+                'name'            => 'Rutas de transporte público en Cochabamba',
+                'numberOfItems'   => count($item_list),
+                'itemListElement' => $item_list,
+            ],
+        ],
+    ]);
 
     $replacement_values = [
         "{{pageTitle}}"     => esc_html($page_title),
+        "{{routesListHtml}}"        => trufi_render_routes_list_html($lines, $index_url),
         "{{statsSindicatos}}"       => esc_html((string) $stats['sindicatos']),
         "{{sindicatosStatHidden}}"  => $stats['sindicatos'] ? '' : 'hidden',
         "{{sindicatoFilterHidden}}" => $stats['sindicatos'] ? '' : 'hidden',
@@ -250,8 +373,112 @@ function trufi_maps_render_routes_index() {
     $template_content = str_replace(array_keys($replacement_values), array_values($replacement_values), $template_content);
 
     global $post;
-    $post->post_title   = $page_title;
     $post->post_content = minify_html($template_content);
+}
+
+/**
+ * A route row's label, e.g. "Villa Taquiña → Loma Pampa", "Hacia Paraiso",
+ * or the line name when neither end is known. Mirrors `patternLabel()` in
+ * assets/js/trufi-index.js.
+ *
+ * @param array $pattern A pattern from trufi_group_patterns_by_line().
+ */
+function trufi_pattern_row_label(array $pattern): string {
+    if ($pattern['from'] !== '' && $pattern['to'] !== '') {
+        return $pattern['from'] . ' → ' . $pattern['to'];
+    }
+
+    return $pattern['to'] !== '' ? 'Hacia ' . $pattern['to'] : $pattern['longName'];
+}
+
+/**
+ * Server-renders the routes index list (sindicato groups > lines > route
+ * links), so search engines and AI crawlers - which mostly don't run
+ * JavaScript - see every route link in the page HTML. trufi-index.js only
+ * replaces it when the visitor filters.
+ *
+ * The markup MUST stay identical to what renderGroup()/renderLine() build
+ * in assets/js/trufi-index.js (same classes, same data-share-* attributes
+ * the JS share handler reads, same group order and labels).
+ *
+ * @param array  $lines     trufi_group_patterns_by_line().
+ * @param string $index_url The index page's permalink (for sindicato share links).
+ *
+ * @return string
+ */
+function trufi_render_routes_list_html(array $lines, string $index_url): string {
+    if (empty($lines)) {
+        return '<div class="trufi-index-empty">No se encontraron líneas.</div>';
+    }
+
+    $mode_labels = ['BUS' => 'Bus', 'TRAM' => 'Tranvía', 'GONDOLA' => 'Teleférico', 'RAIL' => 'Tren'];
+
+    $share_button = fn(string $url, string $title, string $label) => sprintf(
+        '<button type="button" class="trufi-share-btn" data-share-url="%s" data-share-title="%s" aria-label="%s">Compartir</button>',
+        esc_url($url),
+        esc_attr($title),
+        esc_attr($label)
+    );
+
+    $render_line = function (array $line) use ($mode_labels, $share_button): string {
+        $html = sprintf(
+            '<div class="trufi-line"><div class="trufi-line-header"><span class="trufi-line-badge"><span class="trufi-icon" data-icon="bus"></span>%s</span><span class="trufi-line-title">%s</span></div>',
+            esc_html($line['shortName']),
+            esc_html(($mode_labels[$line['mode']] ?? $line['mode']) . ' ' . $line['shortName'])
+        );
+        foreach ($line['patterns'] as $pattern) {
+            $label = trufi_pattern_row_label($pattern);
+            $html .= sprintf(
+                '<div class="trufi-pattern"><a class="trufi-pattern-link" href="%s"><span class="trufi-icon" data-icon="route" aria-hidden="true"></span><span class="trufi-pattern-label">%s</span></a>%s</div>',
+                esc_url($pattern['url']),
+                esc_html($label),
+                $share_button($pattern['url'], $pattern['longName'] . ' · ' . $label, 'Compartir la ruta ' . $pattern['longName'] . ', ' . $label)
+            );
+        }
+
+        return $html . '</div>';
+    };
+
+    $render_group = function (string $name, int $total, ?string $slug, array $group_lines) use ($render_line, $share_button, $index_url): string {
+        $html = sprintf(
+            '<section class="trufi-group"><div class="trufi-group-header"><div class="trufi-group-info"><span class="trufi-group-name">%s</span><span class="trufi-group-count">%s</span></div>%s</div>',
+            esc_html($name),
+            esc_html($total . ($total === 1 ? ' ruta trazada' : ' rutas trazadas')),
+            $slug ? $share_button(add_query_arg('sindicato', $slug, $index_url), $name, 'Compartir las rutas de ' . $name) : ''
+        );
+
+        return $html . implode('', array_map($render_line, $group_lines)) . '</section>';
+    };
+
+    $groups = [];
+    $others = [];
+    foreach ($lines as $line) {
+        if ($line['sindicato']) {
+            $groups[$line['sindicato']['slug']]['name']    = $line['sindicato']['name'];
+            $groups[$line['sindicato']['slug']]['lines'][] = $line;
+        } else {
+            $others[] = $line;
+        }
+    }
+
+    // No operator data at all (sindicatos source off/unreachable): plain line list.
+    if (empty($groups)) {
+        return implode('', array_map($render_line, $lines));
+    }
+
+    $sort_key = fn(string $name) => strtolower(remove_accents($name));
+    uasort($groups, fn($a, $b) => strcmp($sort_key($a['name']), $sort_key($b['name'])));
+
+    $html        = '';
+    $count_paths = fn(array $group_lines) => array_sum(array_map(fn($line) => count($line['patterns']), $group_lines));
+    foreach ($groups as $slug => $group) {
+        $html .= $render_group($group['name'], $count_paths($group['lines']), $slug, $group['lines']);
+    }
+    if ($others) {
+        $html .= $render_group('Otras líneas', $count_paths($others), null, $others);
+    }
+
+    return $html;
 }
 
 /**

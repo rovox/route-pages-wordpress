@@ -49,6 +49,9 @@ function trufi_maps_enqueue_frontend_assets() {
     if ($is_route_detail) {
         $routeData = trufi_fetch_route_data(rawurldecode($map_id));
         $pattern   = $routeData['data']['pattern'] ?? null;
+        if (!$pattern) {
+            return; // 404/503 page, see trufi_maps_route_not_available()
+        }
         $labels    = trufi_pattern_labels($pattern['route']['longName'] ?? '', $pattern['headsign'] ?? '', trufi_fetch_sindicatos_data());
 
         wp_enqueue_style('trufi-route', $plugin_url . 'assets/css/trufi-route.css', ['trufi-shared'], $ver);

@@ -2,24 +2,18 @@
 namespace App\Providers;
 
 use App\Api\TrufiApi;
-use App\Utility;
 use WP_Sitemaps_Provider;
 
 class TrufiRoutesSitemapProvider extends WP_Sitemaps_Provider {
-    private   string $apiUrl;
     private   int $cache_lifetime_hours;
     private   string $cache_key;
     protected $name;
 
-    private string $base_path;
-
-    public function __construct($apiUrl) {
-        $this->apiUrl               = $apiUrl;
+    public function __construct() {
         $this->name                 = 'routes';
         $this->object_type          = 'routes';
         $this->cache_lifetime_hours = get_option(TRUFI_CACHE_TTL_OPTION) * 60 * 60;
         $this->cache_key = 'trufi_routes_sitemap_xml';
-        $this->base_path = trufi_get_base_path();
     }
 
     public function get_name(): string {
@@ -45,29 +39,29 @@ class TrufiRoutesSitemapProvider extends WP_Sitemaps_Provider {
      */
     private function getCachedRouteUrls(): array {
         $url_list = get_transient($this->cache_key);
-        if (false === $url_list) {
+        if (!is_array($url_list) || empty($url_list)) {
             $url_list = $this->getRouteUrls();
-            set_transient($this->cache_key, $url_list, $this->cache_lifetime_hours);
+            // Don't cache an empty list (API down/misconfigured) for the whole TTL.
+            if (!empty($url_list)) {
+                set_transient($this->cache_key, $url_list, $this->cache_lifetime_hours);
+            }
         }
 
         return $url_list;
     }
 
     /**
-     * Fetch route urls from Trufi API and format for sitemap
+     * Fetch route urls from Trufi API (via trufi_api_call(), the configured
+     * endpoint) and format for sitemap
      *
      * @return array
      */
     private function getRouteUrls(): array {
-        $trufiApi = new TrufiApi($this->apiUrl);
-        $data     = $trufiApi->routeUrlList();
+        $data = trufi_api_call(fn(TrufiApi $api) => $api->routeUrlList());
 
         $url_list = [];
-        foreach ($data['data']['patterns'] as $pattern) {
-            $routeCode  = $pattern['code'];
-            $routeName  = Utility::replaceArrowWithWord($pattern['route']['longName']);
-            $routeName  = sanitize_title($routeName);
-            $url_list[] = ['loc' => home_url("/$this->base_path/$routeName/$routeCode")];
+        foreach ($data['data']['patterns'] ?? [] as $pattern) {
+            $url_list[] = ['loc' => trufi_pattern_url($pattern['route']['longName'] ?? '', $pattern['code'])];
         }
 
         return $url_list;

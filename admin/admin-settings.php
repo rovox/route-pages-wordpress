@@ -48,6 +48,8 @@ function trufi_routes_settings_page() {
         $map_zoom          = $_POST['trufi_map_zoom'];
         $sindicatos_url    = esc_url_raw(trim($_POST['trufi_sindicatos_url'] ?? ''));
 
+        $previous_base_path = trufi_get_base_path();
+
         update_option(TRUFI_API_URL_OPTION, $api_url);
         update_option(TRUFI_SITE_DESCRIPTION_OPTION, $site_description);
         update_option(TRUFI_LINE_COLOR_OPTION, $line_color);
@@ -65,8 +67,15 @@ function trufi_routes_settings_page() {
 
         update_option(TRUFI_SHOW_LOCATION_OPTION, isset($_POST['trufi_show_location']) ? '1' : '0');
 
+        // Base page changed: keep redirecting route URLs under the old one.
+        if (trufi_get_base_path() !== $previous_base_path) {
+            $legacy_paths   = (array) get_option(TRUFI_LEGACY_BASE_PATHS_OPTION, []);
+            $legacy_paths[] = $previous_base_path;
+            update_option(TRUFI_LEGACY_BASE_PATHS_OPTION, array_values(array_unique(array_filter($legacy_paths))));
+        }
+
         delete_trufi_transients();
-        trufi_maps_add_rewrite_rules();
+        trufi_maps_flush_rewrite_rules();
 
         echo '<div class="notice notice-success is-dismissible"><p>' . __('Configuration saved.', 'TrufiApi-maps') . '</p></div>';
     }
