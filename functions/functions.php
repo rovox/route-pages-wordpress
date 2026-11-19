@@ -74,11 +74,13 @@ function trufi_api_call(callable $call): array|null {
 }
 
 /**
- * Operator ("sindicato") and origin data from the open OSM-derived dataset
- * configured in TRUFI_SINDICATOS_URL_OPTION, transient-cached.
+ * Fallback operator ("sindicato") and origin data from the open OSM-derived
+ * dataset configured in TRUFI_SINDICATOS_URL_OPTION, transient-cached.
  *
- * The Trufi feed has neither: every route's agency is "default", and
- * longName is just the line name (e.g. "Trufi 303") with no origin. The
+ * The feed's route `agency.name` is the primary sindicato (see
+ * trufi_line_sindicato()); this dataset only covers the few routes whose
+ * agency is "default", and the origin of a pattern - longName is just the
+ * line name (e.g. "Trufi 303") with no origin. The
  * dataset's routes carry `name` (same string as the feed's longName), `ref`
  * (same as shortName), `sindicato`, and `from`/`to` - so it's reduced here
  * to three small lookup maps before caching (the raw file is ~2 MB, mostly
@@ -168,40 +170,128 @@ function trufi_normalize_place(string $place): string {
 }
 
 /**
- * The operator ("sindicato") running a line, looked up by route name first
- * and by shortName as a fallback.
+ * True when a "sindicato" name is really just a line name ("Linea 103",
+ * "Línea M", or the line's own short/long name). The third-party dataset has
+ * a few of those, which used to surface lines as if they were associations
+ * (QA bug: "Linea 103" listed as a sindicato).
+ */
+function trufi_is_line_like_name(string $name, array $route): bool {
+    $name = trim($name);
+    if ($name === '') {
+        return true;
+    }
+    if (preg_match('/^l[ií]neas?\s+\S+$/iu', $name)) {
+        return true;
+    }
+    $own = array_filter([trim((string) ($route['shortName'] ?? '')), trim((string) ($route['longName'] ?? ''))]);
+
+    return in_array(mb_strtolower($name), array_map('mb_strtolower', $own), true);
+}
+
+/**
+ * The operator ("sindicato") running a line. The feed's route agency is the
+ * source of truth (it carries the real sindicato name for every line but a
+ * handful tagged "default"); only for those does the third-party OSM-derived
+ * dataset fill in, by route name first and shortName second - ignoring any
+ * dataset "sindicato" that is really a line name.
  *
- * @param string $longName
- * @param string $shortName
- * @param array  $sindicatos trufi_fetch_sindicatos_data()
+ * @param array $route      The pattern's `route` node (gtfsId, shortName, longName, agency{name}).
+ * @param array $sindicatos trufi_fetch_sindicatos_data()
  *
  * @return array{name: string, slug: string}|null
  */
-function trufi_line_sindicato(string $longName, string $shortName, array $sindicatos): ?array {
-    return $sindicatos['byName'][$longName] ?? $sindicatos['byRef'][$shortName] ?? null;
+function trufi_line_sindicato(array $route, array $sindicatos): ?array {
+    $agency = trim((string) ($route['agency']['name'] ?? ''));
+    if ($agency !== '' && strtolower($agency) !== 'default' && !trufi_is_line_like_name($agency, $route)) {
+        return ['name' => $agency, 'slug' => sanitize_title($agency)];
+    }
+
+    $found = $sindicatos['byName'][$route['longName'] ?? ''] ?? $sindicatos['byRef'][$route['shortName'] ?? ''] ?? null;
+
+    return $found && !trufi_is_line_like_name($found['name'], $route) ? $found : null;
+}
+
+/**
+ * The line's display name. The feed's longName ("Trufi M", "MicroBus 16",
+ * "Bus Colomi") is used as-is - the vehicle type isn't reliably known, so we
+ * never prepend one ourselves - except a generic leading "Bus " is dropped.
+ */
+function trufi_line_title(array $route): string {
+    $long  = trim((string) ($route['longName'] ?? ''));
+    $short = trim((string) ($route['shortName'] ?? ''));
+    $title = preg_replace('/^Bus\s+(?=\S)/u', '', $long);
+
+    return $title !== '' ? $title : $short;
+}
+
+/**
+ * The feed's headsign is often NOT a destination: volunteers fill it with the
+ * marking painted on the vehicle ("Panter naranja", "Bandera roja: Nro.
+ * blanco"), which only tells variants of a line apart. Those must never be
+ * shown as "hacia ...".
+ */
+function trufi_is_vehicle_marker(string $headsign): bool {
+    return (bool) preg_match('/^\s*(panter|pantera|bandera|letrero|cartel)\b|\bnro\.?\s/iu', $headsign);
+}
+
+/**
+ * OTP's pattern name looks like "46 to Calle X (cochabamba:123) from Calle Y
+ * (cochabamba:456)" (the "from" part only when needed to tell patterns
+ * apart). Extracts the real last / first stop names from it.
+ *
+ * @return array{from: string, to: string}
+ */
+function trufi_pattern_endpoints_from_name(string $name): array {
+    $clean = static function (string $text): string {
+        $text = trim(preg_replace('/\s*\([^()]*:[^()]*\)\s*$/u', '', trim($text)));
+
+        return strcasecmp($text, 'Innominada') === 0 ? '' : $text;
+    };
+    $from = $to = '';
+    if (preg_match('/\sto\s(.+?)(?:\sfrom\s(.+))?$/u', $name, $m)) {
+        $to   = $clean($m[1]);
+        $from = isset($m[2]) ? $clean($m[2]) : '';
+    }
+
+    return ['from' => $from, 'to' => $to];
 }
 
 /**
  * Display labels for one pattern: the feed's longName is just the line name
  * ("Trufi 303"), the destination is the pattern's headsign, and the origin
- * comes from the sindicatos dataset when it can be matched unambiguously.
+ * comes from the sindicatos dataset when it can be matched unambiguously,
+ * else from `$originFallback` (the route's first stop, on the detail page).
  *
- * @param string $longName
- * @param string $headsign
- * @param array  $sindicatos trufi_fetch_sindicatos_data()
+ * @param string      $longName
+ * @param string      $headsign
+ * @param array       $sindicatos     trufi_fetch_sindicatos_data()
+ * @param string|null $originFallback e.g. the first stop's name
  *
- * @return array{headline: string, from: string, to: string, subtitle: string}
+ * @return array{headline: string, from: string, to: string, subtitle: string, sentence: string}
  */
-function trufi_pattern_labels(string $longName, string $headsign, array $sindicatos): array {
-    $to   = trim($headsign);
+function trufi_pattern_labels(string $longName, string $headsign, array $sindicatos, ?string $originFallback = null, ?string $destFallback = null): array {
+    $headsign = trim($headsign);
+    $variant  = '';
+    $to       = $headsign;
+    if (trufi_is_vehicle_marker($headsign)) {
+        // A vehicle marking, not a place: the real destination is the last stop.
+        $variant = $headsign;
+        $to      = ($destFallback !== null && strcasecmp(trim($destFallback), 'Innominada') !== 0) ? trim($destFallback) : '';
+    }
     $from = $to !== '' ? ($sindicatos['origins'][$longName . '|' . trufi_normalize_place($to)] ?? '') : '';
+    if ($from === '' && $originFallback !== null && strcasecmp(trim($originFallback), 'Innominada') !== 0) {
+        $from = trim($originFallback);
+    }
 
-    if ($from !== '') {
-        $subtitle = $from . ' → ' . $to;
+    if ($from !== '' && $to !== '') {
+        $subtitle = $from . ' hacia ' . $to;
+        $sentence = 'Parte desde ' . $from . ' hacia el destino ' . $to;
     } elseif ($to !== '') {
         $subtitle = 'Hacia ' . $to;
+        $sentence = 'Va hacia el destino ' . $to;
     } else {
         $subtitle = '';
+        $sentence = '';
     }
 
     return [
@@ -209,18 +299,21 @@ function trufi_pattern_labels(string $longName, string $headsign, array $sindica
         'from'     => $from,
         'to'       => $to,
         'subtitle' => $subtitle,
+        'sentence' => $sentence,
+        'variant'  => $variant,
     ];
 }
 
 /**
- * Group a flat pattern list into lines (by route shortName), each carrying
- * its patterns (direction/variant) underneath, plus the line's operator
- * ("sindicato", or null when the sindicatos dataset has no match) and each
- * pattern's origin/destination labels.
+ * Group a flat pattern list into lines - one per feed route (`gtfsId`), NOT
+ * per shortName: different routes can share an identifier ("M", "A", "R",
+ * "16") and used to be merged into one card with the first one's mode and
+ * sindicato (QA bug). Each line carries its patterns (direction/variant), its
+ * operator ("sindicato", from the feed's agency) and each pattern's
+ * origin/destination labels.
  *
- * Grouping by sindicato happens client-side (trufi-index.js) on top of this,
- * since the feed itself has no operator data (agency is "default" for every
- * route) - it comes from trufi_fetch_sindicatos_data().
+ * Grouping by sindicato happens on top of this, in trufi_render_routes_list_html()
+ * and client-side in trufi-index.js.
  *
  * @param array $patterns
  *
@@ -230,32 +323,108 @@ function trufi_group_patterns_by_line(array $patterns): array {
     $sindicatos = trufi_fetch_sindicatos_data();
     $lines      = [];
     foreach ($patterns as $pattern) {
-        $shortName = $pattern['route']['shortName'] ?? '';
-        if ($shortName === '') {
+        $route     = $pattern['route'] ?? [];
+        $shortName = (string) ($route['shortName'] ?? '');
+        $longName  = (string) ($route['longName'] ?? '');
+        if ($shortName === '' && $longName === '') {
             continue;
         }
-        $longName = $pattern['route']['longName'] ?? '';
-        if (!isset($lines[$shortName])) {
-            $lines[$shortName] = [
-                'shortName' => $shortName,
-                'mode'      => $pattern['route']['mode'] ?? 'BUS',
-                'sindicato' => trufi_line_sindicato($longName, $shortName, $sindicatos),
+        $mode = (string) ($route['mode'] ?? 'BUS');
+        $key  = !empty($route['gtfsId']) ? (string) $route['gtfsId'] : $shortName . '|' . $longName . '|' . $mode;
+        if (!isset($lines[$key])) {
+            $lines[$key] = [
+                'id'        => $key,
+                'shortName' => $shortName !== '' ? $shortName : $longName,
+                'title'     => trufi_line_title($route),
+                'mode'      => $mode,
+                'sindicato' => trufi_line_sindicato($route, $sindicatos),
                 'patterns'  => [],
             ];
         }
-        $labels = trufi_pattern_labels($longName, $pattern['headsign'] ?? '', $sindicatos);
-        $lines[$shortName]['patterns'][] = [
+        $ends   = trufi_pattern_endpoints_from_name((string) ($pattern['name'] ?? ''));
+        $labels = trufi_pattern_labels($longName, $pattern['headsign'] ?? '', $sindicatos, $ends['from'] ?: null, $ends['to'] ?: null);
+        $lines[$key]['patterns'][] = [
             'code'     => $pattern['code'],
             'longName' => $longName,
             'from'     => $labels['from'],
             'to'       => $labels['to'],
+            'variant'  => $labels['variant'],
+            'label'    => '',
             'url'      => trufi_pattern_url($longName, $pattern['code']),
         ];
     }
+    foreach ($lines as &$line) {
+        trufi_label_line_patterns($line['patterns']);
+    }
+    unset($line);
     $lines = array_values($lines);
-    usort($lines, fn($a, $b) => strnatcasecmp($a['shortName'], $b['shortName']));
+    usort($lines, fn($a, $b) => strnatcasecmp($a['shortName'], $b['shortName']) ?: strnatcasecmp($a['title'], $b['title']));
 
     return $lines;
+}
+
+/**
+ * Sets each pattern's final row label. Labels that would repeat inside one
+ * line (e.g. several branches all "Hacia Olmedo") get the vehicle marking when
+ * known ("... (Panter azul)") and otherwise a "variante N" suffix, so no two
+ * rows in a card read the same.
+ *
+ * @param array $patterns Line patterns, modified in place.
+ */
+function trufi_label_line_patterns(array &$patterns): void {
+    $base = [];
+    foreach ($patterns as $i => $p) {
+        $label = ($p['from'] !== '' && $p['to'] !== '') ? $p['from'] . ' hacia ' . $p['to']
+            : ($p['to'] !== '' ? 'Hacia ' . $p['to'] : ($p['variant'] !== '' ? 'Ruta ' . $p['variant'] : $p['longName']));
+        $base[$i] = $label;
+    }
+    $counts = array_count_values($base);
+    $seen   = [];
+    foreach ($patterns as $i => &$p) {
+        $label = $base[$i];
+        if ($counts[$label] > 1) {
+            $seen[$label] = ($seen[$label] ?? 0) + 1;
+            if ($p['variant'] !== '' && stripos($label, $p['variant']) === false) {
+                $label .= ' (' . $p['variant'] . ')';
+            } else {
+                $label .= ' (variante ' . $seen[$label] . ')';
+            }
+        }
+        $p['label'] = $label;
+    }
+}
+
+/**
+ * Distinct stop/street names along a route, in travel order, skipping the
+ * feed's "Innominada" placeholder. Indexable text for "which line passes
+ * through X".
+ *
+ * @param array $stops List of ['name'=>...].
+ *
+ * @return string[]
+ */
+function trufi_route_place_names(array $stops): array {
+    $names = [];
+    foreach ($stops as $stop) {
+        $name = trim((string) ($stop['name'] ?? ''));
+        if ($name === '' || strcasecmp($name, 'Innominada') === 0) {
+            continue;
+        }
+        $names[mb_strtolower($name)] ??= $name;
+    }
+
+    return array_values($names);
+}
+
+/**
+ * Joins items as Spanish prose: "A, B y C".
+ *
+ * @param string[] $items
+ */
+function trufi_join_es(array $items): string {
+    $last = array_pop($items);
+
+    return $items ? implode(', ', $items) . ' y ' . $last : (string) $last;
 }
 
 /**
@@ -373,10 +542,26 @@ function trufi_get_base_path(): string {
  */
 function trufi_setup_page_head(array $meta): void {
     remove_action('wp_head', 'rel_canonical');
+    ob_start('trufi_demote_theme_page_title');
 
     add_filter('pre_get_document_title', fn() => $meta['title']);
     add_filter('language_attributes', fn($output) => preg_replace('/lang="[^"]*"/', 'lang="es"', $output));
     add_action('wp_head', fn() => trufi_add_header_tags($meta), 7);
+}
+
+/**
+ * Output-buffer callback: the theme prints its own page-title <h1>
+ * ("Routes", class entry-title / wp-block-post-title) above the_content on
+ * these virtual pages, and the plugin's hero has the real <h1>. Two h1s hurt
+ * the document outline, so the theme's becomes a plain <div> with the same
+ * attributes (styling and the CSS that hides it keep working).
+ */
+function trufi_demote_theme_page_title(string $html): string {
+    return preg_replace_callback(
+        '#<h1(\s[^>]*class="[^"]*(?:entry-title|page-title|wp-block-post-title)[^"]*"[^>]*)>(.*?)</h1>#s',
+        fn($m) => '<div' . $m[1] . '>' . $m[2] . '</div>',
+        $html
+    );
 }
 
 /**
@@ -469,7 +654,12 @@ add_filter('robots_txt', function ($output, $public) {
   return $output;
 }, 20, 2);
 
+/**
+ * Light HTML minifier for the page templates: drops comments and the
+ * newline+indent whitespace between tags. Spaces on one line (e.g. between
+ * "</strong> <span>hacia</span>") are kept, since they separate words.
+ */
 function minify_html($input)
 {
-  return preg_replace(array('/<!--(?!\s*(?:\[if [^\]]+]|<!|>))(?:(?!-->).)*-->/s', '/\s*(<[^>]+>)\s*/', '/\s\s+/', '/\n/',), array('', '$1', ' ', '',), $input);
+  return preg_replace(array('/<!--(?!\s*(?:\[if [^\]]+]|<!|>))(?:(?!-->).)*-->/s', '/>\s*\n\s*</', '/\s*\n\s*/', '/[ \t]{2,}/'), array('', '><', ' ', ' '), $input);
 }

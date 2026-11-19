@@ -39,10 +39,16 @@ function trufi_llms_txt(array $lines, string $index_url): string {
     $out  = "# {$site} - Rutas de transporte público de Cochabamba\n\n";
     $out .= "> Recorridos de " . count($lines) . " líneas y {$route_count} rutas de micros, trufis y taxi trufis en Cochabamba, Bolivia: "
         . "origen, destino, paradas (nombres de calles) y mapa de cada ruta.\n\n";
-    $out .= "Cada ruta tiene su propia página con el trazado en el mapa, la lista de paradas, la distancia y el sindicato que la opera. "
-        . "Los recorridos vienen de Trufi (OpenTripPlanner / GTFS, mapeados en OpenStreetMap); los sindicatos y orígenes, de un conjunto de datos abierto derivado de OpenStreetMap.\n\n";
+    $out .= "Es un servicio complementario para encontrar rápido las líneas registradas, el sindicato al que pertenece cada una y su trayecto completo en el mapa. "
+        . "Cada ruta tiene su propia página con el trazado, la lista ordenada de paradas (nombres de calles e intersecciones por donde pasa), la distancia y el sindicato. "
+        . "Los recorridos vienen de Trufi (GTFS / OpenTripPlanner, mapeados por voluntarios en OpenStreetMap) y el sindicato de cada línea es el operador (agency) registrado en ese GTFS. "
+        . "No se garantiza que las líneas operen las 24 horas ni todos los días: aquí no se publican horarios ni frecuencias.\n\n";
     $out .= "## Índice\n\n";
-    $out .= "- [Todas las rutas]({$index_url}): buscador por línea, origen, destino o sindicato, con mapa.\n\n";
+    $out .= "- [Todas las rutas]({$index_url}): buscador por nombre de línea (por ejemplo \"M\" o \"103\"), filtro por sindicato y mapa.\n\n";
+    $out .= "## Preguntas frecuentes\n\n";
+    foreach (trufi_index_faq(count($lines), $route_count) as $item) {
+        $out .= "**{$item['q']}**\n{$item['a']}\n\n";
+    }
     $out .= "## Rutas por sindicato\n";
 
     $groups = [];
@@ -61,7 +67,7 @@ function trufi_llms_txt(array $lines, string $index_url): string {
         $out .= "\n### {$name}\n\n";
         foreach ($group_lines as $line) {
             foreach ($line['patterns'] as $pattern) {
-                $out .= '- [' . $pattern['longName'] . ': ' . trufi_pattern_row_label($pattern) . '](' . $pattern['url'] . ")\n";
+                $out .= '- [' . $line['title'] . ': ' . trufi_pattern_row_label($pattern) . '](' . $pattern['url'] . ")\n";
             }
         }
     }

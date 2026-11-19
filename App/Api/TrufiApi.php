@@ -70,7 +70,7 @@ class TrufiApi {
         $query     = 'query pattern($id: String!) {
                     pattern(id: $id) {
                         headsign,
-                        route { id, shortName, longName, mode },
+                        route { id, gtfsId, shortName, longName, mode, agency { name } },
                         geometry { lat, lon },
                         stops { name, lat, lon, code }
                     }
@@ -104,7 +104,7 @@ class TrufiApi {
     public function routeIndexList(): array|null {
         $body = '{
             patterns{
-                code, headsign, route{ shortName, longName, mode }
+                code, name, headsign, route{ gtfsId, shortName, longName, mode, agency{ name } }
             }
         }';
         return $this->query($body);
