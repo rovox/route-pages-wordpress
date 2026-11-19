@@ -409,6 +409,7 @@ function trufi_maps_render_routes_index() {
 
     $stats = [
         'sindicatos' => count(array_unique(array_filter(array_map(fn($line) => $line['sindicato']['slug'] ?? null, $lines)))),
+        'unassigned' => count(array_filter($lines, fn($line) => empty($line['sindicato']['slug']))),
         'lines'      => count($lines),
         'patterns'   => count($patterns),
     ];
@@ -458,6 +459,8 @@ function trufi_maps_render_routes_index() {
         "{{sindicatosStatHidden}}"  => $stats['sindicatos'] ? '' : 'hidden',
         "{{sindicatoFilterHidden}}" => $stats['sindicatos'] ? '' : 'hidden',
         "{{modeFilterHidden}}" => count(array_unique(array_column($lines, 'mode'))) > 1 ? '' : 'hidden',
+        "{{statsUnassigned}}"       => esc_html((string) $stats['unassigned']),
+        "{{unassignedStatHidden}}"  => $stats['unassigned'] ? '' : 'hidden',
         "{{statsLines}}"    => esc_html((string) $stats['lines']),
         "{{statsPatterns}}" => esc_html((string) $stats['patterns']),
         "{{showLocation}}"  => $show_location === '1' ? '1' : '0',
@@ -575,7 +578,7 @@ function trufi_render_routes_list_html(array $lines, string $index_url): string 
         $html .= $render_group($group['name'], $count_paths($group['lines']), $slug, $group['lines']);
     }
     if ($others) {
-        $html .= $render_group('Otras líneas', $count_paths($others), null, $others);
+        $html .= $render_group('Sin sindicato identificado', $count_paths($others), null, $others);
     }
 
     return $html;

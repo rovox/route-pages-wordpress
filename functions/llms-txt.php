@@ -34,7 +34,7 @@ add_action('template_redirect', function () {
 function trufi_llms_txt(array $lines, string $index_url): string {
     $site         = get_bloginfo('name');
     $route_count  = array_sum(array_map(fn($line) => count($line['patterns']), $lines));
-    $sindicato_of = fn($line) => $line['sindicato']['name'] ?? 'Otras líneas';
+    $sindicato_of = fn($line) => $line['sindicato']['name'] ?? 'Sin sindicato identificado';
 
     $out  = "# {$site} - Rutas de transporte público de Cochabamba\n\n";
     $out .= "> Recorridos de " . count($lines) . " líneas y {$route_count} rutas de micros, trufis y taxi trufis en Cochabamba, Bolivia: "
@@ -56,8 +56,8 @@ function trufi_llms_txt(array $lines, string $index_url): string {
         $groups[$sindicato_of($line)][] = $line;
     }
     uksort($groups, function ($a, $b) {
-        if ($a === 'Otras líneas' || $b === 'Otras líneas') {
-            return $a === 'Otras líneas' ? 1 : -1;
+        if ($a === 'Sin sindicato identificado' || $b === 'Sin sindicato identificado') {
+            return $a === 'Sin sindicato identificado' ? 1 : -1;
         }
 
         return strcmp(strtolower(remove_accents($a)), strtolower(remove_accents($b)));

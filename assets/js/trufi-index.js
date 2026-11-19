@@ -266,7 +266,7 @@
                 });
 
             if (otherLines.length) {
-                listEl.appendChild(renderGroup('Otras líneas', otherLinesTotal, null, otherLines));
+                listEl.appendChild(renderGroup('Sin sindicato identificado', otherLinesTotal, null, otherLines));
             }
         }
 
