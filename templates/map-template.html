@@ -1,37 +1,48 @@
-<div class="trufi-route">
-    <div class="trufi-hero">
+<div class="trufi-route" style="--trufi-line-color: {{lineColor}}">
+    <a class="trufi-skip-link" href="#trufi-route-stops-title">Saltar el mapa e ir a la lista de paradas</a>
+
+    <section class="trufi-hero" aria-labelledby="routeName">
         <div class="trufi-hero-copy">
-            <a class="trufi-route-back" href="{{indexUrl}}"><span class="trufi-icon" data-icon="arrowLeft" aria-hidden="true"></span> Ver todas las rutas</a>
+            <nav aria-label="Navegación de la ruta"><a class="trufi-route-back" href="{{indexUrl}}"><span class="trufi-icon" data-icon="arrowLeft" aria-hidden="true"></span> Ver todas las rutas</a></nav>
             <h1 id="routeName">{{routeHeadline}}</h1>
-            <p class="trufi-route-subtitle">{{routeSubtitle}}</p>
+            <p class="trufi-route-subtitle" id="trufi-route-subtitle">{{routeSubtitleHtml}}</p>
             <p class="trufi-route-sindicato" {{routeSindicatoHidden}}><span class="trufi-icon" data-icon="users" aria-hidden="true"></span> Sindicato: {{routeSindicato}}</p>
         </div>
-        <div class="trufi-hero-stats">
-            <div class="trufi-hero-stat">
+        <ul class="trufi-hero-stats" role="list" aria-label="Datos de la ruta">
+            <li class="trufi-hero-stat">
                 <strong>{{routeDistance}}</strong>
                 <span>Distancia</span>
-            </div>
-            <div class="trufi-hero-stat">
+            </li>
+            <li class="trufi-hero-stat">
                 <strong>{{routeStopCount}}</strong>
                 <span>Paradas</span>
-            </div>
-        </div>
-    </div>
+            </li>
+        </ul>
+    </section>
 
     {{storeButtonsHtml}}
 
     <div class="trufi-route-body">
-        <div class="trufi-route-sidebar">
+        <section class="trufi-route-sidebar" aria-labelledby="trufi-route-stops-title">
             <div class="trufi-list-title">
-                <span class="trufi-list-title-label"><span class="trufi-icon" data-icon="route" aria-hidden="true"></span> Paradas</span>
-                <button type="button" class="trufi-share-btn" id="trufi-route-share">Compartir</button>
+                <h2 class="trufi-list-title-label" id="trufi-route-stops-title" tabindex="-1"><span class="trufi-icon" data-icon="route" aria-hidden="true"></span> Paradas</h2>
+                <button type="button" class="trufi-share-btn" id="trufi-route-share" aria-label="Compartir esta ruta">Compartir</button>
             </div>
-            <ul class="trufi-stops-list" id="trufi-route-stops">{{stopsListHtml}}</ul>
-        </div>
-        <div class="trufi-route-map-wrap">
-            <div class="trufi-map-hint" id="trufi-route-map-hint"></div>
-            <div id="trufi-route-map" class="trufi-map"></div>
-            <button type="button" class="trufi-geo-btn" id="trufi-geo-btn" title="Marcar dónde estoy" data-show-location="{{showLocation}}"><span class="trufi-icon" data-icon="locate" aria-hidden="true"></span> Mi ubicación</button>
-        </div>
+            <div class="trufi-stops-scroll" id="trufi-route-stops-scroll">
+                <ol class="trufi-stops-list" id="trufi-route-stops" tabindex="0" aria-labelledby="trufi-route-stops-title" aria-describedby="trufi-route-subtitle">{{stopsListHtml}}</ol>
+                <p class="trufi-scroll-hint" id="trufi-route-scroll-hint" aria-hidden="true"><span class="trufi-icon" data-icon="chevronDown"></span> Desplaza para ver más paradas</p>
+            </div>
+        </section>
+        <section class="trufi-route-map-wrap" aria-label="Mapa del recorrido">
+            <div class="trufi-map-hint" id="trufi-route-map-hint" role="status" aria-live="polite"></div>
+            <div id="trufi-route-map" class="trufi-map" role="region" aria-label="{{mapLabel}}" aria-describedby="trufi-route-about"></div>
+            <button type="button" class="trufi-geo-btn" id="trufi-geo-btn" data-show-location="{{showLocation}}"><span class="trufi-icon" data-icon="locate" aria-hidden="true"></span> Mi ubicación</button>
+        </section>
     </div>
+
+    <section class="trufi-route-about" id="trufi-route-about" aria-labelledby="trufi-route-about-title">
+        <h2 id="trufi-route-about-title">Sobre esta ruta</h2>
+        {{routeSummaryHtml}}
+        <p class="trufi-route-attribution">Datos de recorridos y paradas: Trufi Association y colaboradores de OpenStreetMap.</p>
+    </section>
 </div>

@@ -42,12 +42,16 @@ function trufi_maps_render_route_page() {
         return;
     }
 
-    $long_name         = $pattern['route']['longName'] ?? '';
-    $route_short_name  = $pattern['route']['shortName'] ?? '';
+    $route             = $pattern['route'] ?? [];
+    $long_name         = $route['longName'] ?? '';
+    $route_short_name  = $route['shortName'] ?? '';
+    $line_title        = trufi_line_title($route);
+    $stops             = $pattern['stops'] ?? [];
     $sindicatos        = trufi_fetch_sindicatos_data();
-    $labels            = trufi_pattern_labels($long_name, $pattern['headsign'] ?? '', $sindicatos);
-    $sindicato         = trufi_line_sindicato($long_name, $route_short_name, $sindicatos);
-    $route_title       = $labels['subtitle'] !== '' ? $labels['headline'] . ': ' . $labels['subtitle'] : $labels['headline'];
+    $labels            = trufi_pattern_labels($long_name, $pattern['headsign'] ?? '', $sindicatos, $stops[0]['name'] ?? null, $stops ? end($stops)['name'] : null);
+    $labels['headline'] = $line_title;
+    $sindicato         = trufi_line_sindicato($route, $sindicatos);
+    $route_title       = $labels['subtitle'] !== '' ? $line_title . ': ' . $labels['subtitle'] : $line_title;
     $page_title        = $route_title . ' | ' . get_bloginfo('name');
     $google_play_url   = get_option(TRUFI_GOOGLE_PLAY_URL_OPTION);
     $apple_store_url   = get_option(TRUFI_APPLE_STORE_URL_OPTION);
@@ -56,17 +60,23 @@ function trufi_maps_render_route_page() {
     $map_page_id       = get_option(TRUFI_MAP_PAGE_ID_OPTION);
     $show_location     = get_option(TRUFI_SHOW_LOCATION_OPTION, '1');
 
-    $stops         = $pattern['stops'] ?? [];
-    $distance_km   = trufi_route_distance_km($pattern['geometry'] ?? []);
-    $route_url     = trufi_pattern_url($long_name, $mapId);
+    $distance_km      = trufi_route_distance_km($pattern['geometry'] ?? []);
+    $distance_label   = trufi_format_distance_km($distance_km);
+    $route_url        = trufi_pattern_url($long_name, $mapId);
+    $places           = trufi_route_place_names($stops);
     $meta_description = trufi_meta_description(sprintf(
-        '%s. %d paradas, %s.%s Mira el recorrido en el mapa de Trufi App.',
-        $route_title,
+        '%s%s. %d paradas, %s%s.%s Sin garantía de servicio las 24 horas.',
+        $line_title,
+        $labels['sentence'] !== '' ? ': ' . $labels['sentence'] : '',
         count($stops),
-        trufi_format_distance_km($distance_km),
+        $distance_label,
+        $places ? ', pasa por ' . trufi_join_es(array_slice($places, 0, 3)) : '',
         $sindicato ? ' Sindicato: ' . $sindicato['name'] . '.' : ''
-    ));
-    $stops_list_html = trufi_render_stops_list_html($stops);
+    ), 175);
+    $stops_list_html    = trufi_render_stops_list_html($stops);
+    $summary_html       = trufi_render_route_summary_html($line_title, $route_short_name, $labels, $sindicato, $distance_label, count($stops), $places);
+    $subtitle_html      = trufi_route_sentence_html($labels);
+    $line_color         = sanitize_hex_color((string) get_option(TRUFI_LINE_COLOR_OPTION)) ?: '#00BCD4';
     $store_buttons_html = trufi_render_store_buttons_html([
         ['url' => $google_play_url, 'image' => $google_play_image, 'label' => 'Disponible en Google Play', 'alt' => 'Descargar en Google Play'],
         ['url' => $apple_store_url, 'image' => $apple_store_image, 'label' => 'Descargar en App Store', 'alt' => 'Descargar en la App Store'],
@@ -81,19 +91,22 @@ function trufi_maps_render_route_page() {
                 ['name' => get_post_field('post_title', $map_page_id), 'url' => get_permalink($map_page_id)],
                 ['name' => $route_title, 'url' => $route_url],
             ]),
-            trufi_route_bustrip_jsonld($pattern, $labels, $sindicato, $route_title, $route_url),
+            trufi_route_bustrip_jsonld($pattern, $labels, $sindicato, $route_title, $route_url, $meta_description),
         ],
     ]);
 
     $replacement_values = [
         "{{pageTitle}}"        => esc_html($page_title),
         "{{routeHeadline}}"    => esc_html($labels['headline']),
-        "{{routeSubtitle}}"    => esc_html($labels['subtitle']),
+        "{{routeSubtitleHtml}}" => $subtitle_html,
+        "{{routeSummaryHtml}}" => $summary_html,
+        "{{lineColor}}"        => esc_attr($line_color),
+        "{{mapLabel}}"         => esc_attr('Mapa interactivo del recorrido de ' . $route_title),
         "{{routeSindicato}}"   => esc_html($sindicato['name'] ?? ''),
         "{{routeSindicatoHidden}}" => $sindicato ? '' : 'hidden',
         "{{routeShortName}}"   => esc_html($route_short_name),
         "{{routeDescription}}" => esc_html($meta_description),
-        "{{routeDistance}}"    => esc_html(trufi_format_distance_km($distance_km)),
+        "{{routeDistance}}"    => esc_html($distance_label),
         "{{routeStopCount}}"   => esc_html((string) count($stops)),
         "{{stopsListHtml}}"    => $stops_list_html,
         "{{indexUrl}}"         => esc_url(get_permalink($map_page_id)),
@@ -201,7 +214,7 @@ function trufi_maps_route_not_available(bool $apiFailed) {
  *
  * @return array
  */
-function trufi_route_bustrip_jsonld(array $pattern, array $labels, ?array $sindicato, string $name, string $url): array {
+function trufi_route_bustrip_jsonld(array $pattern, array $labels, ?array $sindicato, string $name, string $url, string $description = ''): array {
     $stops = $pattern['stops'] ?? [];
     $stop  = function (?array $stop, string $label) {
         if (!$stop && $label === '') {
@@ -218,8 +231,9 @@ function trufi_route_bustrip_jsonld(array $pattern, array $labels, ?array $sindi
         '@type'            => 'BusTrip',
         'name'             => $name,
         'url'              => $url,
+        'description'      => $description,
         'busNumber'        => $pattern['route']['shortName'] ?? '',
-        'busName'          => $pattern['route']['longName'] ?? '',
+        'busName'          => trufi_line_title($pattern['route'] ?? []),
         'departureBusStop' => $stop($stops[0] ?? null, $labels['from']),
         'arrivalBusStop'   => $stop($stops ? $stops[count($stops) - 1] : null, $labels['to']),
         'provider'         => $sindicato ? ['@type' => 'Organization', 'name' => $sindicato['name']] : null,
@@ -249,15 +263,93 @@ function trufi_render_stops_list_html(array $stops): string {
     foreach ($stops as $i => $stop) {
         $variant = $i === 0 ? 'is-start' : ($i === $lastIndex ? 'is-end' : '');
         $name    = $stop['name'] !== '' ? $stop['name'] : 'Innominada';
+        $role    = $i === 0 ? 'Origen: ' : ($i === $lastIndex ? 'Destino: ' : '');
+        // A <button> (not a bare clickable <li>) so keyboard and screen-reader
+        // users can focus a stop and have the map jump to it (WCAG 2.1.1).
         $html    .= sprintf(
-            '<li class="trufi-stop %s" data-stop-index="%d" data-lat="%s" data-lon="%s"><span class="trufi-stop-dot" aria-hidden="true"></span><span class="trufi-stop-name">%s</span></li>',
+            '<li class="trufi-stop-item"><button type="button" class="trufi-stop %s" data-stop-index="%d" data-lat="%s" data-lon="%s"><span class="trufi-stop-dot" aria-hidden="true"></span><span class="trufi-stop-name">%s%s</span></button></li>',
             esc_attr($variant),
             (int) $i,
             esc_attr($stop['lat']),
             esc_attr($stop['lon']),
+            $role !== '' ? '<span class="trufi-stop-role">' . esc_html($role) . '</span>' : '',
             esc_html($name)
         );
     }
+
+    return $html;
+}
+
+/**
+ * The hero sentence of a route page as HTML: "Parte desde <origin> hacia el
+ * destino <destination>", with "hacia" in the site's pink (a styled span, not
+ * an arrow glyph, so screen readers read a real word).
+ *
+ * @param array $labels trufi_pattern_labels()
+ */
+function trufi_route_sentence_html(array $labels): string {
+    $html = '';
+    if ($labels['from'] !== '' && $labels['to'] !== '') {
+        $html = sprintf(
+            'Parte desde <strong>%s</strong> <span class="trufi-hacia">hacia</span> el destino <strong>%s</strong>',
+            esc_html($labels['from']),
+            esc_html($labels['to'])
+        );
+    } elseif ($labels['to'] !== '') {
+        $html = sprintf('Va <span class="trufi-hacia">hacia</span> el destino <strong>%s</strong>', esc_html($labels['to']));
+    }
+    if (($labels['variant'] ?? '') !== '') {
+        $html .= sprintf(
+            '%s<span class="trufi-variant">Variante del recorrido: %s</span>',
+            $html !== '' ? '<br>' : '',
+            esc_html($labels['variant'])
+        );
+    }
+
+    return $html;
+}
+
+/**
+ * Longer "about this route" copy for the route page (real indexable text for
+ * search engines and answer engines, and context for people who can't read
+ * the map): what the line is, who runs it, where this variant starts and
+ * ends, how long it is, which streets/zones it passes, and that schedules
+ * are not guaranteed.
+ *
+ * @param string     $title        Line display name.
+ * @param string     $short_name
+ * @param array      $labels       trufi_pattern_labels()
+ * @param array|null $sindicato
+ * @param string     $distance     Formatted distance, e.g. "12,3 km".
+ * @param int        $stop_count
+ * @param string[]   $places       trufi_route_place_names()
+ */
+function trufi_render_route_summary_html(string $title, string $short_name, array $labels, ?array $sindicato, string $distance, int $stop_count, array $places): string {
+    $e = 'esc_html';
+
+    $intro = sprintf('<strong>%s</strong> es una línea de transporte público de Cochabamba%s.', $e($title), $sindicato ? ', registrada en el <strong>' . $e($sindicato['name']) . '</strong>' : '');
+    if ($labels['sentence'] !== '') {
+        $intro .= ' Este recorrido ' . lcfirst(trufi_route_sentence_html($labels)) . '.';
+    }
+    $intro .= sprintf(
+        ' Su trazado mide aproximadamente %s y tiene %d %s registradas.',
+        $e($distance),
+        $stop_count,
+        $stop_count === 1 ? 'parada' : 'paradas'
+    );
+
+    $html = '<p>' . $intro . '</p>';
+
+    if ($places) {
+        $shown = array_slice($places, 0, 14);
+        $rest  = count($places) - count($shown);
+        $html .= '<p>En el sentido del recorrido pasa por: ' . $e(trufi_join_es($shown))
+            . ($rest > 0 ? ' y otras ' . $rest . ' calles o zonas' : '') . '.</p>';
+    }
+
+    $html .= '<p class="trufi-route-note">Esta página es un servicio complementario para ubicar rápidamente las líneas registradas y ver su trayecto completo en el mapa. '
+        . 'Los horarios y la frecuencia no están garantizados: las líneas no necesariamente operan las 24 horas ni todos los días. '
+        . 'Confirma con el sindicato o en la app Trufi antes de viajar.</p>';
 
     return $html;
 }
@@ -326,19 +418,18 @@ function trufi_maps_render_routes_index() {
     $page_title    = 'Rutas de micros, trufis y taxi trufis en Cochabamba | ' . get_bloginfo('name');
     $show_location = get_option(TRUFI_SHOW_LOCATION_OPTION, '1');
     $description   = trufi_meta_description(sprintf(
-        'Recorridos de %d líneas y %d rutas de micros, trufis y taxi trufis en Cochabamba%s. Busca tu línea y mira su recorrido en el mapa.',
+        'Encuentra las %d líneas de Cochabamba%s y el trayecto completo de sus %d recorridos en el mapa, con paradas y calles. Sin garantía de servicio 24 horas.',
         $stats['lines'],
-        $stats['patterns'],
-        $stats['sindicatos'] ? sprintf(', de %d sindicatos', $stats['sindicatos']) : ''
-    ));
-
+        $stats['sindicatos'] ? sprintf(' y su sindicato (%d)', $stats['sindicatos']) : '',
+        $stats['patterns']
+    ), 175);
     $item_list = [];
     foreach ($lines as $line) {
         foreach ($line['patterns'] as $pattern) {
             $item_list[] = [
                 '@type'    => 'ListItem',
                 'position' => count($item_list) + 1,
-                'name'     => $pattern['longName'] . ': ' . trufi_pattern_row_label($pattern),
+                'name'     => $line['title'] . ': ' . trufi_pattern_row_label($pattern),
                 'url'      => $pattern['url'],
             ];
         }
@@ -366,6 +457,7 @@ function trufi_maps_render_routes_index() {
         "{{statsSindicatos}}"       => esc_html((string) $stats['sindicatos']),
         "{{sindicatosStatHidden}}"  => $stats['sindicatos'] ? '' : 'hidden',
         "{{sindicatoFilterHidden}}" => $stats['sindicatos'] ? '' : 'hidden',
+        "{{modeFilterHidden}}" => count(array_unique(array_column($lines, 'mode'))) > 1 ? '' : 'hidden',
         "{{statsLines}}"    => esc_html((string) $stats['lines']),
         "{{statsPatterns}}" => esc_html((string) $stats['patterns']),
         "{{showLocation}}"  => $show_location === '1' ? '1' : '0',
@@ -380,15 +472,18 @@ function trufi_maps_render_routes_index() {
 }
 
 /**
- * A route row's label, e.g. "Villa Taquiña → Loma Pampa", "Hacia Paraiso",
+ * A route row's label, e.g. "Villa Taquiña hacia Loma Pampa", "Hacia Paraiso",
  * or the line name when neither end is known. Mirrors `patternLabel()` in
  * assets/js/trufi-index.js.
  *
  * @param array $pattern A pattern from trufi_group_patterns_by_line().
  */
 function trufi_pattern_row_label(array $pattern): string {
+    if (($pattern['label'] ?? '') !== '') {
+        return $pattern['label'];
+    }
     if ($pattern['from'] !== '' && $pattern['to'] !== '') {
-        return $pattern['from'] . ' → ' . $pattern['to'];
+        return $pattern['from'] . ' hacia ' . $pattern['to'];
     }
 
     return $pattern['to'] !== '' ? 'Hacia ' . $pattern['to'] : $pattern['longName'];
@@ -411,10 +506,8 @@ function trufi_pattern_row_label(array $pattern): string {
  */
 function trufi_render_routes_list_html(array $lines, string $index_url): string {
     if (empty($lines)) {
-        return '<div class="trufi-index-empty">No se encontraron líneas.</div>';
+        return '<p class="trufi-index-empty">No se encontraron líneas.</p>';
     }
-
-    $mode_labels = ['BUS' => 'Bus', 'TRAM' => 'Tranvía', 'GONDOLA' => 'Teleférico', 'RAIL' => 'Tren'];
 
     $share_button = fn(string $url, string $title, string $label) => sprintf(
         '<button type="button" class="trufi-share-btn" data-share-url="%s" data-share-title="%s" aria-label="%s">Compartir</button>',
@@ -423,34 +516,38 @@ function trufi_render_routes_list_html(array $lines, string $index_url): string 
         esc_attr($label)
     );
 
-    $render_line = function (array $line) use ($mode_labels, $share_button): string {
+    // Heading level of a line title: h4 under a sindicato's h3, h3 in the flat list.
+    $render_line = function (array $line, string $tag) use ($share_button): string {
         $html = sprintf(
-            '<div class="trufi-line"><div class="trufi-line-header"><span class="trufi-line-badge"><span class="trufi-icon" data-icon="bus"></span>%s</span><span class="trufi-line-title">%s</span></div>',
+            '<div class="trufi-line"><div class="trufi-line-header"><span class="trufi-line-badge" aria-hidden="true"><span class="trufi-icon" data-icon="bus"></span>%s</span><%s class="trufi-line-title">%s</%s></div><ul class="trufi-pattern-list">',
             esc_html($line['shortName']),
-            esc_html(($mode_labels[$line['mode']] ?? $line['mode']) . ' ' . $line['shortName'])
+            $tag,
+            esc_html($line['title']),
+            $tag
         );
         foreach ($line['patterns'] as $pattern) {
             $label = trufi_pattern_row_label($pattern);
             $html .= sprintf(
-                '<div class="trufi-pattern"><a class="trufi-pattern-link" href="%s"><span class="trufi-icon" data-icon="route" aria-hidden="true"></span><span class="trufi-pattern-label">%s</span></a>%s</div>',
+                '<li class="trufi-pattern"><a class="trufi-pattern-link" href="%s"><span class="trufi-icon" data-icon="route" aria-hidden="true"></span><span class="trufi-pattern-label">%s</span></a>%s</li>',
                 esc_url($pattern['url']),
                 esc_html($label),
-                $share_button($pattern['url'], $pattern['longName'] . ' · ' . $label, 'Compartir la ruta ' . $pattern['longName'] . ', ' . $label)
+                $share_button($pattern['url'], $line['title'] . ' · ' . $label, 'Compartir la ruta ' . $line['title'] . ', ' . $label)
             );
         }
 
-        return $html . '</div>';
+        return $html . '</ul></div>';
     };
 
     $render_group = function (string $name, int $total, ?string $slug, array $group_lines) use ($render_line, $share_button, $index_url): string {
         $html = sprintf(
-            '<section class="trufi-group"><div class="trufi-group-header"><div class="trufi-group-info"><span class="trufi-group-name">%s</span><span class="trufi-group-count">%s</span></div>%s</div>',
+            '<section class="trufi-group" aria-label="%s"><div class="trufi-group-header"><div class="trufi-group-info"><h3 class="trufi-group-name">%s</h3><span class="trufi-group-count">%s</span></div>%s</div>',
+            esc_attr($name),
             esc_html($name),
             esc_html($total . ($total === 1 ? ' ruta trazada' : ' rutas trazadas')),
             $slug ? $share_button(add_query_arg('sindicato', $slug, $index_url), $name, 'Compartir las rutas de ' . $name) : ''
         );
 
-        return $html . implode('', array_map($render_line, $group_lines)) . '</section>';
+        return $html . implode('', array_map(fn($line) => $render_line($line, 'h4'), $group_lines)) . '</section>';
     };
 
     $groups = [];
@@ -464,9 +561,9 @@ function trufi_render_routes_list_html(array $lines, string $index_url): string 
         }
     }
 
-    // No operator data at all (sindicatos source off/unreachable): plain line list.
+    // No operator data at all (no agency names, dataset off): plain line list.
     if (empty($groups)) {
-        return implode('', array_map($render_line, $lines));
+        return implode('', array_map(fn($line) => $render_line($line, 'h3'), $lines));
     }
 
     $sort_key = fn(string $name) => strtolower(remove_accents($name));
@@ -482,6 +579,38 @@ function trufi_render_routes_list_html(array $lines, string $index_url): string 
     }
 
     return $html;
+}
+
+/**
+ * Questions people (and answer engines) ask about this directory. Rendered
+ * in /llms.txt only. It is not shown on the page, so there is no FAQPage
+ * markup without visible content.
+ *
+ * @return array<array{q: string, a: string}>
+ */
+function trufi_index_faq(int $lines, int $routes): array {
+    return [
+        [
+            'q' => '¿Qué es esta página?',
+            'a' => sprintf('Es un servicio complementario de Trufi App para encontrar rápidamente las líneas de transporte público registradas en Cochabamba (%d líneas y %d recorridos), saber a qué sindicato pertenecen y ver su trayecto completo en el mapa.', $lines, $routes),
+        ],
+        [
+            'q' => '¿Cómo encuentro una línea?',
+            'a' => 'Escribe el nombre o número de la línea en el buscador (por ejemplo "M" o "103"). Si no hay una línea con ese nombre, la búsqueda también revisa los lugares de origen y destino. Puedes filtrar por sindicato.',
+        ],
+        [
+            'q' => '¿Cómo sé por qué calles o zonas pasa una línea?',
+            'a' => 'Abre el recorrido de la línea: la página muestra el trazado en el mapa, la lista ordenada de paradas con el nombre de cada calle o intersección y el texto con las calles y zonas por las que pasa.',
+        ],
+        [
+            'q' => '¿Las líneas funcionan las 24 horas?',
+            'a' => 'No se garantiza. Esta guía muestra los recorridos registrados, no los horarios ni la frecuencia. Las líneas no necesariamente operan las 24 horas ni todos los días; confirma con el sindicato o en la app Trufi.',
+        ],
+        [
+            'q' => '¿De dónde salen los datos?',
+            'a' => 'Los recorridos y paradas provienen del mapeo abierto de Trufi (GTFS construido a partir de OpenStreetMap por voluntarios) y se actualizan periódicamente, por lo que pueden cambiar.',
+        ],
+    ];
 }
 
 /**

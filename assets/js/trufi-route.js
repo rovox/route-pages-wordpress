@@ -11,10 +11,40 @@
 
     const pattern = config.pattern;
 
+    // Back link: return to the index with the filter the visitor came from.
+    (function restoreBackLink() {
+        const back = document.querySelector('.trufi-route-back');
+        if (!back) return;
+        try {
+            let saved = JSON.parse(window.sessionStorage.getItem('trufiIndexView') || 'null');
+            if (!saved || !saved.search) {
+                // New tab / storage cleared: use the referring index URL, if any.
+                const ref = document.referrer ? new URL(document.referrer) : null;
+                const base = new URL(back.href, window.location.href);
+                if (ref && ref.origin === base.origin && ref.pathname === base.pathname) {
+                    saved = { search: ref.search, label: '' };
+                }
+            }
+            if (!saved || !saved.search) return;
+            back.href = back.href.split('?')[0].split('#')[0] + saved.search;
+            if (saved.label) {
+                const text = document.createTextNode(' Volver a ' + saved.label);
+                const icon = back.querySelector('[data-icon]');
+                back.textContent = '';
+                if (icon) back.appendChild(icon);
+                back.appendChild(text);
+            } else if (saved.search) {
+                back.setAttribute('title', 'Volver a la lista con tus filtros');
+            }
+        } catch (e) { /* keep the plain link */ }
+    })();
+
     const hintEl = document.getElementById('trufi-route-map-hint');
     const geoBtn = document.getElementById('trufi-geo-btn');
     const stopsListEl = document.getElementById('trufi-route-stops');
     const shareBtn = document.getElementById('trufi-route-share');
+    const scrollWrapEl = document.getElementById('trufi-route-stops-scroll');
+    const scrollHintEl = document.getElementById('trufi-route-scroll-hint');
 
     const map = L.map('trufi-route-map', { zoomControl: false }).setView([0, 0], 13);
     L.control.zoom({ position: 'bottomright' }).addTo(map);
@@ -43,13 +73,13 @@
     });
 
     if (stopsListEl) {
-        stopsListEl.querySelectorAll('.trufi-stop').forEach(function (li) {
-            li.addEventListener('click', function () {
-                const lat = parseFloat(li.getAttribute('data-lat'));
-                const lon = parseFloat(li.getAttribute('data-lon'));
+        stopsListEl.querySelectorAll('.trufi-stop').forEach(function (stopEl) {
+            stopEl.addEventListener('click', function () {
+                const lat = parseFloat(stopEl.getAttribute('data-lat'));
+                const lon = parseFloat(stopEl.getAttribute('data-lon'));
                 if (isNaN(lat) || isNaN(lon)) return;
                 map.setView([lat, lon], Math.max(map.getZoom(), 16));
-                const index = parseInt(li.getAttribute('data-stop-index'), 10);
+                const index = parseInt(stopEl.getAttribute('data-stop-index'), 10);
                 const marker = drawn.stopMarkers[index];
                 if (marker) marker.openTooltip();
                 setActiveStop(index);
@@ -57,14 +87,30 @@
         });
     }
 
+    // Scroll affordance for the stops list: a bottom fade + "desplaza" hint
+    // while more stops are hidden below, cleared once the end is reached.
+    // (Also announced by the list being a focusable, labelled scroll region.)
+    function updateScrollHint() {
+        if (!scrollWrapEl || !stopsListEl) return;
+        const more = stopsListEl.scrollHeight - stopsListEl.scrollTop - stopsListEl.clientHeight > 8;
+        scrollWrapEl.classList.toggle('has-more', more);
+        if (scrollHintEl) scrollHintEl.hidden = !more;
+    }
+    if (stopsListEl) {
+        stopsListEl.addEventListener('scroll', updateScrollHint, { passive: true });
+        window.addEventListener('resize', updateScrollHint);
+        updateScrollHint();
+    }
+
+    // The hint is a polite live region emptied (hidden via `:empty`) after a
+    // moment, so no blank dark pill is left over the map.
     if (hintEl) {
         Trufi.geo.attach(map, {
             button: geoBtn,
             onHint: function (msg) {
                 hintEl.textContent = msg;
-                hintEl.style.display = 'block';
                 clearTimeout(hintEl._t);
-                hintEl._t = setTimeout(function () { hintEl.style.display = 'none'; }, 2500);
+                hintEl._t = setTimeout(function () { hintEl.textContent = ''; }, 2500);
             },
         });
     }

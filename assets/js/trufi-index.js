@@ -28,6 +28,7 @@
     const sindicatoEl = document.getElementById('trufi-index-sindicato-filter');
     const clearEl = document.getElementById('trufi-index-clear');
     const hintEl = document.getElementById('trufi-index-map-hint');
+    const statusEl = document.getElementById('trufi-index-status');
     const geoBtn = document.getElementById('trufi-geo-btn');
 
     const map = L.map('trufi-index-map', { zoomControl: false }).setView([config.mapCenter.lat, config.mapCenter.lng], config.mapZoom);
@@ -38,12 +39,13 @@
 
     let hintTimer = null;
 
+    // The hint is a polite live region: it is emptied (and so hidden by
+    // `:empty` in CSS) when it expires, instead of leaving a blank dark pill.
     function hint(msg, hideAfterMs) {
         hintEl.textContent = msg;
-        hintEl.style.display = 'block';
         clearTimeout(hintTimer);
         if (hideAfterMs) {
-            hintTimer = setTimeout(function () { hintEl.style.display = 'none'; }, hideAfterMs);
+            hintTimer = setTimeout(function () { hintEl.textContent = ''; }, hideAfterMs);
         }
     }
 
@@ -112,6 +114,14 @@
             }
         });
         window.history.replaceState(null, '', url.toString());
+        try {
+            // So a route page's back link can return to this filtered view.
+            const opt = sindicatoEl.options[sindicatoEl.selectedIndex];
+            window.sessionStorage.setItem('trufiIndexView', JSON.stringify({
+                search: url.search,
+                label: sindicatoEl.value && opt ? opt.textContent : '',
+            }));
+        } catch (e) { /* storage unavailable: back link just goes to the index */ }
     }
 
     function update() {
@@ -124,7 +134,8 @@
     }
 
     function patternLabel(pattern) {
-        if (pattern.from && pattern.to) return pattern.from + ' → ' + pattern.to;
+        if (pattern.label) return pattern.label;
+        if (pattern.from && pattern.to) return pattern.from + ' hacia ' + pattern.to;
         if (pattern.to) return 'Hacia ' + pattern.to;
         return pattern.longName;
     }
@@ -142,7 +153,8 @@
         return btn;
     }
 
-    function renderLine(line) {
+    // Heading level of a line title: h4 under a sindicato's h3, h3 in the flat list.
+    function renderLine(line, tag) {
         const lineEl = document.createElement('div');
         lineEl.className = 'trufi-line';
 
@@ -151,21 +163,24 @@
 
         const badge = document.createElement('span');
         badge.className = 'trufi-line-badge';
+        badge.setAttribute('aria-hidden', 'true');
         badge.innerHTML = '<span class="trufi-icon" data-icon="bus"></span>';
         badge.appendChild(document.createTextNode(line.shortName));
         header.appendChild(badge);
 
-        const title = document.createElement('span');
+        const title = document.createElement(tag);
         title.className = 'trufi-line-title';
-        title.textContent = (modeLabels[line.mode] || line.mode) + ' ' + line.shortName;
+        title.textContent = line.title;
         header.appendChild(title);
 
         lineEl.appendChild(header);
 
+        const list = document.createElement('ul');
+        list.className = 'trufi-pattern-list';
         line.patterns.forEach(function (pattern) {
             const label = patternLabel(pattern);
 
-            const row = document.createElement('div');
+            const row = document.createElement('li');
             row.className = 'trufi-pattern';
 
             const link = document.createElement('a');
@@ -175,9 +190,10 @@
             link.querySelector('.trufi-pattern-label').textContent = label;
             row.appendChild(link);
 
-            row.appendChild(shareButton(pattern.url, pattern.longName + ' · ' + label, 'Compartir la ruta ' + pattern.longName + ', ' + label));
-            lineEl.appendChild(row);
+            row.appendChild(shareButton(pattern.url, line.title + ' · ' + label, 'Compartir la ruta ' + line.title + ', ' + label));
+            list.appendChild(row);
         });
+        lineEl.appendChild(list);
 
         return lineEl;
     }
@@ -185,13 +201,14 @@
     function renderGroup(name, total, slug, groupLines) {
         const groupEl = document.createElement('section');
         groupEl.className = 'trufi-group';
+        groupEl.setAttribute('aria-label', name);
 
         const header = document.createElement('div');
         header.className = 'trufi-group-header';
 
         const info = document.createElement('div');
         info.className = 'trufi-group-info';
-        const nameEl = document.createElement('span');
+        const nameEl = document.createElement('h3');
         nameEl.className = 'trufi-group-name';
         nameEl.textContent = name;
         const countEl = document.createElement('span');
@@ -206,7 +223,7 @@
         }
 
         groupEl.appendChild(header);
-        groupLines.forEach(function (line) { groupEl.appendChild(renderLine(line)); });
+        groupLines.forEach(function (line) { groupEl.appendChild(renderLine(line, 'h4')); });
         return groupEl;
     }
 
@@ -219,16 +236,17 @@
         listEl.innerHTML = '';
 
         if (filtered.length === 0) {
-            const empty = document.createElement('div');
+            const empty = document.createElement('p');
             empty.className = 'trufi-index-empty';
             empty.textContent = 'No se encontraron líneas.';
             listEl.appendChild(empty);
+            announce(0);
             return;
         }
 
         if (!hasSindicatos) {
             // No operator data (sindicatos source disabled/unreachable): plain line list.
-            filtered.forEach(function (line) { listEl.appendChild(renderLine(line)); });
+            filtered.forEach(function (line) { listEl.appendChild(renderLine(line, 'h3')); });
         } else {
             const groups = {};
             const otherLines = [];
@@ -253,6 +271,17 @@
         }
 
         Trufi.icons.mount(listEl);
+        announce(filtered.length);
+    }
+
+    // Result count for screen readers (polite live region) and sighted users.
+    // Only after the visitor filters: the initial page load stays quiet.
+    function announce(count) {
+        if (!statusEl) return;
+        const active = searchEl.value.trim() || modeEl.value || sindicatoEl.value;
+        statusEl.textContent = active
+            ? (count === 0 ? 'No se encontraron líneas.' : count + (count === 1 ? ' línea encontrada.' : ' líneas encontradas.'))
+            : '';
     }
 
     listEl.addEventListener('click', function (e) {
@@ -277,4 +306,7 @@
     if (searchEl.value || modeEl.value || sindicatoEl.value) {
         render();
     }
+    // Remember the view even if the visitor never changes a filter (opened
+    // from a shared ?sindicato= link), so a route page can link back to it.
+    syncUrl();
 })();

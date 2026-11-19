@@ -1,52 +1,64 @@
 <div class="trufi-index">
-    <div class="trufi-hero">
+    <a class="trufi-skip-link" href="#trufi-index-list">Saltar la búsqueda e ir al listado de rutas</a>
+
+    <section class="trufi-hero" aria-labelledby="trufi-index-title">
         <div class="trufi-hero-copy">
             <p class="trufi-hero-eyebrow"><span class="trufi-icon" data-icon="route" aria-hidden="true"></span> Rutas de Cochabamba</p>
-            <h1>Explora las líneas sobre el mapa</h1>
-            <p>Consulta el trazado completo de micros, trufis y taxi trufis en la Llajta. Elige una línea para ver por dónde pasa y llega a tu destino sin perderte.</p>
+            <h1 id="trufi-index-title">Explora las líneas sobre el mapa</h1>
+            <p>Un servicio complementario para encontrar rápido las líneas de transporte público registradas, el sindicato al que pertenecen y su trayecto completo entre puntos. Elige una línea para ver por dónde pasa. Los horarios no están garantizados: las líneas no necesariamente operan las 24 horas.</p>
         </div>
-        <div class="trufi-hero-stats">
-            <div class="trufi-hero-stat" {{sindicatosStatHidden}}>
+        <ul class="trufi-hero-stats" role="list" aria-label="Resumen de la guía">
+            <li class="trufi-hero-stat" {{sindicatosStatHidden}}>
                 <strong>{{statsSindicatos}}</strong>
                 <span>Sindicatos</span>
-            </div>
-            <div class="trufi-hero-stat">
+            </li>
+            <li class="trufi-hero-stat">
                 <strong>{{statsLines}}</strong>
                 <span>Líneas</span>
-            </div>
-            <div class="trufi-hero-stat">
+            </li>
+            <li class="trufi-hero-stat">
                 <strong>{{statsPatterns}}</strong>
-                <span>Rutas Trazadas</span>
-            </div>
-        </div>
-    </div>
+                <span>Rutas trazadas</span>
+            </li>
+        </ul>
+    </section>
 
     <div class="trufi-index-body">
-        <div class="trufi-index-sidebar">
+        <section class="trufi-index-sidebar" aria-labelledby="trufi-index-list-title">
             <div class="trufi-list-title">
-                <span class="trufi-list-title-label"><span class="trufi-icon" data-icon="route" aria-hidden="true"></span> Rutas</span>
+                <h2 class="trufi-list-title-label" id="trufi-index-list-title"><span class="trufi-icon" data-icon="route" aria-hidden="true"></span> Líneas y recorridos</h2>
             </div>
-            <div class="trufi-index-list" id="trufi-index-list">{{routesListHtml}}</div>
-        </div>
-        <div class="trufi-index-map-wrap">
-            <div class="trufi-searchbar">
-                <label class="trufi-search-field">
+            <p class="trufi-index-status" id="trufi-index-status" role="status" aria-live="polite"></p>
+            <div class="trufi-index-list" id="trufi-index-list" tabindex="0" role="region" aria-label="Listado de líneas y recorridos, con desplazamiento">{{routesListHtml}}</div>
+        </section>
+        <div class="trufi-index-main">
+        <div class="trufi-searchbar" role="search" aria-label="Buscar líneas de transporte">
+            <div class="trufi-field trufi-search-field">
+                <label class="trufi-sr-only" for="trufi-index-search">Nombre de la línea</label>
+                <div class="trufi-search-input">
                     <span class="trufi-icon" data-icon="search" aria-hidden="true"></span>
-                    <input type="text" id="trufi-index-search" aria-label="Buscar rutas" placeholder="Buscar línea, origen, destino...">
-                </label>
-                <select id="trufi-index-sindicato-filter" aria-label="Sindicato" {{sindicatoFilterHidden}}>
-                    <option value="">Todos los sindicatos</option>
-                </select>
-                <select id="trufi-index-mode-filter" aria-label="Tipo de transporte">
-                    <option value="">Tipo de transporte</option>
-                </select>
-                <div class="trufi-searchbar-actions">
-                    <button type="button" class="trufi-btn" id="trufi-index-clear"><span class="trufi-icon" data-icon="filterX" aria-hidden="true"></span> Limpiar</button>
-                    <button type="button" class="trufi-geo-btn" id="trufi-geo-btn" title="Marcar dónde estoy" data-show-location="{{showLocation}}"><span class="trufi-icon" data-icon="locate" aria-hidden="true"></span> Mi ubicación</button>
+                    <input type="search" id="trufi-index-search" autocomplete="off" enterkeyhint="search" aria-describedby="trufi-index-status" placeholder="Buscar línea (ej.: M, 103, 16)">
                 </div>
             </div>
-            <div class="trufi-map-hint" id="trufi-index-map-hint">Elige una ruta de la lista para ver su detalle</div>
-            <div id="trufi-index-map" class="trufi-map"></div>
+            <div class="trufi-field" {{sindicatoFilterHidden}}>
+                <label class="trufi-sr-only" for="trufi-index-sindicato-filter">Sindicato</label>
+                <select id="trufi-index-sindicato-filter">
+                    <option value="">Todos los sindicatos</option>
+                </select>
+            </div>
+            <div class="trufi-field" {{modeFilterHidden}}>
+                <label class="trufi-sr-only" for="trufi-index-mode-filter">Tipo de transporte</label>
+                <select id="trufi-index-mode-filter">
+                    <option value="">Todos</option>
+                </select>
+            </div>
+            <button type="button" class="trufi-btn" id="trufi-index-clear"><span class="trufi-icon" data-icon="filterX" aria-hidden="true"></span> Limpiar filtros</button>
+        </div>
+        <section class="trufi-index-map-wrap" aria-label="Mapa de Cochabamba">
+            <div class="trufi-map-hint" id="trufi-index-map-hint" role="status" aria-live="polite">Elige una ruta de la lista para ver su detalle</div>
+            <div id="trufi-index-map" class="trufi-map" role="region" aria-label="Mapa general de Cochabamba. Para ver el trayecto de una línea, elige una ruta del listado."></div>
+            <button type="button" class="trufi-geo-btn" id="trufi-geo-btn" data-show-location="{{showLocation}}"><span class="trufi-icon" data-icon="locate" aria-hidden="true"></span> Mi ubicación</button>
+        </section>
         </div>
     </div>
 </div>

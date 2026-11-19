@@ -78,16 +78,18 @@ Trufi.routeDraw = {
      * One small marker per stop, labelled with its street name on hover/tap.
      * @returns {Object<number, L.CircleMarker>} markers keyed by stop index
      */
-    drawStops: function (layerGroup, stops, onStopClick) {
+    drawStops: function (layerGroup, stops, onStopClick, lineColor) {
         const markersByIndex = {};
         (stops || []).forEach(function (stop, index) {
             if (index === 0 || index === stops.length - 1) return; // endpoints are drawn bigger by drawEndpoints
+            // Small white "ring" in the line's color, so the stop reads as part
+            // of the line instead of a gray blob covering it.
             const marker = L.circleMarker([stop.lat, stop.lon], {
-                radius: 4,
-                color: '#fff',
-                weight: 1.5,
-                fillColor: '#495057',
-                fillOpacity: 0.9,
+                radius: 3.5,
+                color: lineColor || '#00BCD4',
+                weight: 2,
+                fillColor: '#fff',
+                fillOpacity: 1,
             }).addTo(layerGroup);
             marker.bindTooltip(stop.name || 'Innominada', { direction: 'top', offset: [0, -4] });
             if (onStopClick) {
@@ -118,13 +120,13 @@ Trufi.routeDraw = {
         const coords = (pattern.geometry || []).map(function (pt) { return [pt.lat, pt.lon]; });
         if (coords.length < 2) return { coords: coords, stopMarkers: {} };
 
-        const polyline = L.polyline(coords, { color: lineColor, weight: options.weight || 5, opacity: 0.9 }).addTo(layerGroup);
+        const polyline = L.polyline(coords, { color: lineColor, weight: options.weight || 5, opacity: 0.9, interactive: false }).addTo(layerGroup);
 
         Trufi.routeDraw.drawDirectionArrows(layerGroup, coords, lineColor);
 
         const labels = options.labels || { to: pattern.headsign || '' };
         Trufi.routeDraw.drawEndpoints(layerGroup, coords, labels);
-        const stopMarkers = Trufi.routeDraw.drawStops(layerGroup, pattern.stops || [], options.onStopClick);
+        const stopMarkers = Trufi.routeDraw.drawStops(layerGroup, pattern.stops || [], options.onStopClick, lineColor);
 
         if (options.fitBounds !== false) {
             map.fitBounds(polyline.getBounds());

@@ -99,6 +99,14 @@
     display: flex;
     gap: 24px;
     flex-wrap: wrap;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.trufi-hero-stat {
+    list-style: none;
+    margin: 0;
 }
 
 .trufi-hero-stat strong {
@@ -137,6 +145,14 @@
     display: flex;
     align-items: center;
     gap: 6px;
+    margin: 0;
+    padding: 0;
+    font-size: inherit;
+    font-weight: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    color: inherit;
+    line-height: inherit;
 }
 
 /* Route/line badge (pink pill with the short name, e.g. "119") ----------- */
@@ -187,7 +203,9 @@
     display: inline-flex;
     align-items: center;
     margin: 0;
-    padding: 4px 10px;
+    padding: 4px 12px;
+    min-height: 28px;
+    min-width: 28px;
     border: 1px solid var(--trufi-pink);
     border-radius: 999px;
     background: var(--trufi-white);
@@ -269,6 +287,10 @@
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
+.trufi-geo-btn {
+    min-height: 36px;
+}
+
 .trufi-geo-btn:hover,
 .trufi-geo-btn.is-locating {
     background: var(--trufi-pink);
@@ -292,6 +314,11 @@
     pointer-events: none;
     text-align: center;
     max-width: calc(100% - 24px);
+}
+
+/* An empty live region must not paint as a blank dark pill over the map. */
+.trufi-map-hint:empty {
+    display: none;
 }
 
 .trufi-geo-pulse-icon {
@@ -342,17 +369,57 @@
     text-shadow: 0 0 2px #fff, 0 0 2px #fff;
 }
 
-/* Stops ("paradas") list + matching map markers --------------------------- */
+/* Stops ("paradas") list: a stepper - one dot per stop joined by a
+ * vertical line in the route's color (--trufi-line-color), green start, red
+ * end. Each stop is a <button> so it is reachable by keyboard. */
+
+.trufi-stop-item {
+    position: relative;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.trufi-stop-item::before {
+    content: '';
+    position: absolute;
+    left: 9px;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--trufi-line-color, #00BCD4);
+}
+
+.trufi-stop-item:first-child::before {
+    top: 50%;
+}
+
+.trufi-stop-item:last-child::before {
+    bottom: 50%;
+}
+
+.trufi-stop-item:only-child::before {
+    display: none;
+}
 
 .trufi-stop {
+    position: relative;
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 7px 4px;
+    gap: 12px;
+    width: 100%;
+    min-height: 36px;
+    margin: 0;
+    padding: 6px 6px 6px 4px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    font: inherit;
     font-size: 13px;
+    line-height: 1.35;
+    text-align: left;
     color: var(--trufi-gray-900);
     cursor: pointer;
-    border-bottom: 1px solid var(--trufi-gray-100);
 }
 
 .trufi-stop:hover,
@@ -362,11 +429,13 @@
 }
 
 .trufi-stop-dot {
+    position: relative;
+    z-index: 1;
     flex: 0 0 auto;
-    width: 10px;
-    height: 10px;
+    width: 15px;
+    height: 15px;
     border-radius: 50%;
-    border: 2px solid var(--trufi-gray-500);
+    border: 3px solid var(--trufi-line-color, #00BCD4);
     background: var(--trufi-white);
 }
 
@@ -380,7 +449,60 @@
     background: #c62828;
 }
 
+.trufi-stop-role {
+    font-weight: 700;
+}
+
+/* Scroll affordance: always-visible thin scrollbar, a fade over the clipped
+ * bottom edge and a "Desplaza" pill while more stops are hidden. */
+
+.trufi-stops-scroll {
+    position: relative;
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.trufi-stops-scroll::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 56px;
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0), var(--trufi-white));
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.trufi-stops-scroll.has-more::after {
+    opacity: 1;
+}
+
+.trufi-scroll-hint {
+    position: absolute;
+    left: 50%;
+    bottom: 8px;
+    z-index: 1;
+    transform: translateX(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin: 0;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: var(--trufi-pink);
+    color: var(--trufi-white);
+    font-size: 12px;
+    font-weight: 600;
+    pointer-events: none;
+    white-space: nowrap;
+}
+
 .trufi-index-empty {
+    margin: 0;
     padding: 24px 12px;
     color: var(--trufi-gray-600);
     font-size: 14px;
@@ -461,4 +583,73 @@
 .trufi-store-buttons a:hover .trufi-store-badge,
 .trufi-store-buttons a:focus-visible .trufi-store-badge {
     background: var(--trufi-pink);
+}
+
+/* "hacia" in the site's pink (route sentence: "Parte desde X hacia el destino Y") */
+
+.trufi-hacia {
+    color: var(--trufi-pink-light);
+    font-weight: 700;
+}
+
+/* Accessibility (WCAG 2.2) ----------------------------------------------- */
+
+/* Keyboard focus: a dark ring with a white halo, visible on both the dark
+ * hero and light panels (2.4.7 / 2.4.11). */
+.trufi-index :focus-visible,
+.trufi-route :focus-visible,
+.trufi-toast :focus-visible {
+    outline: 3px solid #1a1a1a;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 5px #fff;
+}
+
+.trufi-hero :focus-visible {
+    outline-color: #fff;
+    box-shadow: 0 0 0 5px #1a1a1a;
+}
+
+/* Visually hidden, still read by assistive tech. */
+.trufi-sr-only,
+.trufi-skip-link:not(:focus) {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Skip link: only appears while keyboard-focused, below the sticky header. */
+.trufi-skip-link:focus {
+    position: fixed;
+    left: 12px;
+    top: 12px;
+    z-index: 100001;
+    padding: 10px 16px;
+    border-radius: 6px;
+    background: var(--trufi-dark);
+    color: var(--trufi-white);
+    font-weight: 600;
+    text-decoration: underline;
+}
+
+.trufi-index,
+.trufi-route {
+    position: relative;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .trufi-geo-pulse-icon::after {
+        animation: none;
+    }
+
+    .trufi-toast,
+    .trufi-stops-scroll::after {
+        transition: none;
+    }
 }

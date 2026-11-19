@@ -85,6 +85,7 @@ Trufi.share = {
             const input = document.createElement('input');
             input.type = 'text';
             input.readOnly = true;
+            input.setAttribute('aria-label', 'Enlace para copiar');
             input.value = url;
             input.addEventListener('focus', function () { input.select(); });
             el.appendChild(input);

@@ -26,7 +26,8 @@ function trufi_maps_enqueue_frontend_assets() {
     }
 
     global $plugin_url;
-    $ver = TRUFI_ROUTES_PLUGIN_VERSION;
+    // Bust browser caches when an asset changes without a version bump.
+    $ver = TRUFI_ROUTES_PLUGIN_VERSION . '.' . (int) @filemtime(dirname(__DIR__) . '/assets/js/trufi-index.js');
 
     // Shared across both pages: icon set, geolocation button behaviour,
     // distance math, and the Leaflet "draw a route" logic (polyline,
@@ -52,7 +53,13 @@ function trufi_maps_enqueue_frontend_assets() {
         if (!$pattern) {
             return; // 404/503 page, see trufi_maps_route_not_available()
         }
-        $labels    = trufi_pattern_labels($pattern['route']['longName'] ?? '', $pattern['headsign'] ?? '', trufi_fetch_sindicatos_data());
+        $labels    = trufi_pattern_labels(
+            $pattern['route']['longName'] ?? '',
+            $pattern['headsign'] ?? '',
+            trufi_fetch_sindicatos_data(),
+            $pattern['stops'][0]['name'] ?? null,
+            !empty($pattern['stops']) ? ($pattern['stops'][array_key_last($pattern['stops'])]['name'] ?? null) : null
+        );
 
         wp_enqueue_style('trufi-route', $plugin_url . 'assets/css/trufi-route.css', ['trufi-shared'], $ver);
         wp_enqueue_script(

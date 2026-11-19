@@ -17,7 +17,8 @@
     gap: 6px;
     color: var(--trufi-gray-500);
     text-decoration: underline;
-    font-size: 13px;
+    font-size: 14px;
+    min-height: 24px;
     margin-bottom: 10px;
 }
 
@@ -28,6 +29,11 @@
 .trufi-hero-copy > .trufi-route-subtitle {
     color: var(--trufi-white);
     font-size: 16px;
+    line-height: 1.5;
+}
+
+.trufi-route-subtitle strong {
+    color: var(--trufi-white);
 }
 
 .trufi-hero-copy > .trufi-route-sindicato {
@@ -65,10 +71,55 @@
 .trufi-stops-list {
     list-style: none;
     margin: 0;
-    padding: 4px 12px;
+    padding: 6px 12px 40px;
     overflow-y: auto;
     flex: 1 1 0;
     min-height: 0;
+    scrollbar-width: thin;
+    scrollbar-color: var(--trufi-pink) var(--trufi-gray-100);
+}
+
+.trufi-stops-list::-webkit-scrollbar {
+    width: 10px;
+}
+
+.trufi-stops-list::-webkit-scrollbar-thumb {
+    background: var(--trufi-pink);
+    border-radius: 6px;
+}
+
+.trufi-stops-list::-webkit-scrollbar-track {
+    background: var(--trufi-gray-100);
+}
+
+/* "Sobre esta ruta": readable long-form copy below the map. */
+.trufi-route-about {
+    padding: 20px 24px 28px;
+    background: var(--trufi-white);
+    border-top: 1px solid var(--trufi-gray-500-a);
+    color: var(--trufi-gray-900);
+}
+
+.trufi-route-about h2 {
+    margin: 0 0 10px;
+    font-size: 18px;
+    color: var(--trufi-gray-900);
+}
+
+.trufi-route-about p {
+    max-width: 75ch;
+    margin: 0 0 10px;
+    line-height: 1.6;
+}
+
+.trufi-route-about .trufi-hacia {
+    color: var(--trufi-pink);
+}
+
+.trufi-route-note,
+.trufi-route-attribution {
+    font-size: 13px;
+    color: var(--trufi-gray-600);
 }
 
 .trufi-route-map-wrap {
@@ -120,8 +171,30 @@
 
     /* Content-sized, capped: `flex: 1 1 0` (desktop) would collapse to 0px
      * in this auto-height column - see the same fix in trufi-index.css. */
+    .trufi-stops-scroll {
+        flex: 0 1 auto;
+    }
+
     .trufi-stops-list {
         flex: 0 1 auto;
         max-height: 60vh;
     }
+
+    .trufi-route-about {
+        padding: 16px;
+    }
+}
+
+.trufi-variant {
+    display: inline-block;
+    margin-top: 4px;
+    font-size: 0.85em;
+    opacity: 0.85;
+}
+
+/* Stop names are selectable/copyable even though each stop is a <button>. */
+#trufi-route-stops button,
+#trufi-route-stops button * {
+    -webkit-user-select: text;
+    user-select: text;
 }
