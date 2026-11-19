@@ -103,24 +103,33 @@ docker compose -f docker-compose.dev.yml down        # stop, keep data
 docker compose -f docker-compose.dev.yml down -v      # stop and wipe the DB/WP volumes
 ```
 
-## SEO & AI-crawler (AISEO) notes
+## SEO, AEO/GEO and accessibility
 
-Each route page now emits, in addition to the existing Open Graph/Twitter tags:
+Both virtual pages (index and route) emit:
 
-- A `<link rel="canonical">` pointing at its own URL.
-- An explicit `<meta name="robots" content="index, follow">`.
-- `BreadcrumbList` JSON-LD (Home → base page → route), so search engines and AI crawlers/answer engines get an explicit page hierarchy instead of having to infer one.
-- Real, route-specific visible text (route name + description) in the page body — previously the visible content was a generic, site-wide call-to-action repeated identically on every route page, which reads as thin/duplicate content to both search engines and AI summarizers.
+- A single `<link rel="canonical">` (WordPress's own, which would point every route at the base page, is removed), document title, `lang="es"`, meta description, Open Graph/Twitter. Robots meta is left to WordPress core.
+- JSON-LD: `BreadcrumbList` on both; `BusTrip` on route pages (origin/destination `BusStop` with coordinates, sindicato as `provider`); `ItemList` + `FAQPage` on the index.
+- Server-rendered content for crawlers that don't run JS: the full list of lines/routes, the stop list in an ordered list, a "Sobre esta ruta" text and an FAQ. The copy states the service's scope: it helps find registered lines and their sindicato and shows the route between points; **hours/24-7 service are not guaranteed**.
+- `/llms.txt` (markdown summary + every route link grouped by sindicato), the core sitemap `/wp-sitemap-routes-1.xml` (auto-generated from the API), and `Allow:`/`Sitemap:` lines in WordPress's virtual `robots.txt`.
 
-Two things are **outside the plugin's control** and worth checking per-site:
+Accessibility (targets WCAG 2.2 AA): skip links, `role="search"` with visible labels, one `<h1>` per page and an unbroken heading hierarchy (the theme's own title is demoted to a `<div>`), `aria-live` status messages, focusable and labelled scroll regions, stops as real `<button>`s, visible focus rings, targets ≥ 24px, `prefers-reduced-motion`.
 
-- **`robots.txt`** — make sure WordPress's "Discourage search engines from indexing this site" setting is off, and that no AI-crawler user agent (`GPTBot`, `ClaudeBot`, `Google-Extended`, `PerplexityBot`, `CCBot`, …) is blocked, if you want route pages surfaced by AI answer engines.
-- **Sitemap submission** — `/wp-sitemap-routes-1.xml` is a real WordPress core sitemap page (linked from `/wp-sitemap.xml`); submit it to Google Search Console / Bing Webmaster Tools as usual.
+Outside the plugin's control, check per site: WordPress's "Discourage search engines" setting must be off, a physical `robots.txt` must not block the plugin's `assets/` or AI crawlers you want, and the sitemap should be submitted to Search Console / Bing.
+
+## Tests
+
+No build step is needed; the checks run with stock tools:
+
+```bash
+node --test tests/search.test.js                                   # search/filter rules
+wp eval-file wp-content/plugins/trufi-route-pages/tests/logic.php   # PHP logic (inside WordPress)
+python3 tests/smoke.py http://localhost:8081                        # semantic HTML / SEO / JSON-LD against a running site
+```
 
 ## Features
 
-- **Routes index** at the Base Page URL (`/{base}`): searchable sidebar plus a map of all lines; route geometry is fetched on demand from the plugin's REST endpoint (`/wp-json/trufi/v1/pattern/{id}`).
-- **Route detail pages** at `/{base}/<name>/<route-code>`: map with direction arrows, origin/destination markers, stop list with street names, distance stat and a share button.
+- **Routes index** at the Base Page URL (`/{base}`): a search bar (by line name, plus sindicato and transport-type filters) independent from the map, the list of lines grouped by sindicato, a map of the city and an FAQ.
+- **Route detail pages** at `/{base}/<name>/<route-code>`: "Parte desde A hacia el destino B", map with direction arrows and origin/destination markers, an ordered stop list (stepper with scroll indicator) with street names, distance and a share button.
 - **"Mi ubicación" button** on both maps (browser geolocation, with an approximate IP-based fallback). It can be disabled in the plugin settings.
 - **Core sitemap** at `/wp-sitemap-routes-1.xml`.
 

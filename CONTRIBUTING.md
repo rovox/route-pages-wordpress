@@ -26,7 +26,7 @@ We are open to new ideas to improve our project. If you have a feature proposal,
 For submitting a Pull Request:
 
 1. Fork the repository and create your branch from `main`.
-2. This repo has no automated tests or linter. Verify your change manually in a real WordPress install (see [DEVELOPMENT.md](DEVELOPMENT.md) for the local Docker stack).
+2. This repo has no linter or CI, but has small checks under `tests/` (see "Tests" in [README.md](README.md)); run them and verify your change manually in a real WordPress install (see [DEVELOPMENT.md](DEVELOPMENT.md) for the local Docker stack).
 3. If you've changed APIs or behavior, update the documentation.
 4. Issue the Pull Request!
 
