@@ -66,6 +66,14 @@ idx = audit(f'{SITE}/{BASE}/', 'index')
 check('role="search"' in idx, 'index: search landmark')
 check('FAQPage' not in idx and 'trufi-faq' not in idx, 'index: no hidden/visible FAQ markup (lives in llms.txt)')
 check(len(re.findall(r'class="trufi-line"', idx)) > 0, 'index: server-rendered lines')
+stats = dict((lbl, int(n)) for n, lbl in re.findall(r'<strong>(\d+)</strong>\s*<span>([^<]+)</span>', idx))
+named = [g for g in re.findall(r'<h3 class="trufi-group-name">(.*?)</h3>', idx) if g != 'Sin sindicato identificado']
+check(stats.get('Sindicatos') == len(named), f'index: Sindicatos stat ({stats.get("Sindicatos")}) == named groups ({len(named)})')
+if 'Sin sindicato identificado' in idx:
+    tail = idx.split('Sin sindicato identificado', 1)[1]
+    check(stats.get('Líneas sin sindicato') == len(re.findall(r'class="trufi-line"', tail)), 'index: "Líneas sin sindicato" stat == lines in that group')
+else:
+    check('Líneas sin sindicato' not in stats, 'index: no unassigned stat without the group')
 check('Linea 103' not in re.findall(r'<h3 class="trufi-group-name">(.*?)</h3>', idx), 'index: no "Linea 103" group')
 
 _, sm = get(f'{SITE}/wp-sitemap-routes-1.xml')

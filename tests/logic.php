@@ -37,6 +37,18 @@ t('"Linea 103" agency falls back to dataset',
 t('agency "default" ignored', trufi_line_sindicato($r103 + ['agency' => ['name' => 'default']], []), null);
 t('agency name used', trufi_line_sindicato($r103 + ['agency' => ['name' => 'Sindicato Real']], [])['name'], 'Sindicato Real');
 
+// Lines without a usable sindicato stay unassigned (they form the "Sin sindicato identificado" group).
+$unassigned = trufi_group_patterns_by_line([
+    $p('c:5', 'Cotapachi', 'Trufi Cotapachi', 'BUS', 'Cotapachi', 'g:5'),
+    $p('c:6', '25', 'Trufi 25', 'BUS', 'default', 'g:6'),
+    $p('c:7', 'M', 'Trufi M', 'BUS', 'Sindicato A', 'g:1'),
+]);
+$none = array_values(array_filter($unassigned, fn($l) => empty($l['sindicato']['slug'])));
+$short = array_column($none, 'shortName');
+sort($short);
+t('agency named like the line is unassigned', $short, ['25', 'Cotapachi']);
+t('unassigned count excludes real sindicatos', count($none), 2);
+
 t('title: leading generic Bus dropped', trufi_line_title(['longName' => 'Bus Colomi', 'shortName' => 'C']), 'Colomi');
 t('title: no vehicle word invented', trufi_line_title(['longName' => 'Trufi M', 'shortName' => 'M']), 'Trufi M');
 t('title: shortName when no longName', trufi_line_title(['longName' => '', 'shortName' => 'M']), 'M');
